@@ -150,7 +150,7 @@ export default function Landing() {
             </div>
             {/* chat */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#E2E8F0', marginBottom: 16 }}>Budi Santoso <span style={{ color: '#475569', fontWeight: 400' }}>· 6281234567890</span></div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#E2E8F0', marginBottom: 16 }}>Budi Santoso <span style={{ color: '#475569', fontWeight: 400 }}>· 6281234567890</span></div>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ alignSelf: 'flex-start', background: '#1E293B', color: '#CBD5E1', padding: '8px 12px', borderRadius: 10, fontSize: 13, maxWidth: '70%' }}>
                   Halo kak, mau tanya soal harga paket premium dong
