@@ -30,37 +30,112 @@ export default function BroadcastPage() {
   }
 
   return (
-    <div style={{ padding: 32, maxWidth: 640 }}>
-      <h1 style={{ fontSize: 22, marginBottom: 16 }}>Broadcast</h1>
+    <div style={{ padding: '32px 40px', maxWidth: 680 }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em', marginBottom: 4 }}>Broadcast</h1>
+        <p style={{ fontSize: 14, color: '#64748B' }}>Kirim pesan ke kontak aktif. Pastikan pesan relevan & bernilai.</p>
+      </div>
 
-      <label style={lbl}>Kirim dari nomor</label>
-      <select value={waNumberId} onChange={e => setWaNumberId(e.target.value)} style={inp}>
-        {numbers.length === 0 && <option value="">(belum ada nomor)</option>}
-        {numbers.map(n => <option key={n.id} value={n.id}>{n.display_phone || n.phone_number_id} {n.label ? `· ${n.label}` : ''}</option>)}
-      </select>
+      <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 16, padding: 24, marginBottom: 16 }}>
+        <div style={{ marginBottom: 18 }}>
+          <label style={lbl}>Kirim dari nomor</label>
+          <select value={waNumberId} onChange={e => setWaNumberId(e.target.value)} style={inp}>
+            {numbers.length === 0 && <option value="">(belum ada nomor)</option>}
+            {numbers.map(n => (
+              <option key={n.id} value={n.id}>
+                {n.display_phone || n.phone_number_id} {n.label ? `· ${n.label}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      <label style={lbl}>Pesan</label>
-      <textarea value={text} onChange={e => setText(e.target.value)} rows={5} placeholder="Tulis pesan broadcast…" style={{ ...inp, resize: 'vertical' }} />
+        <div style={{ marginBottom: 18 }}>
+          <label style={lbl}>Pesan</label>
+          <textarea
+            value={text} onChange={e => setText(e.target.value)}
+            rows={6} placeholder="Tulis pesan broadcast…"
+            style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }}
+          />
+          <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 4, textAlign: 'right' }}>
+            {text.length} karakter
+          </div>
+        </div>
 
-      <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', margin: '4px 0 16px', fontSize: 13, color: '#555' }}>
-        <input type="checkbox" checked={engagedOnly} onChange={e => setEngagedOnly(e.target.checked)} style={{ marginTop: 3 }} />
-        <span><b>Cuma ke pelanggan aktif</b> (aktif chat 60 hari terakhir). Nomor opt-out otomatis dibuang. Disarankan nyala biar quality rating aman.</span>
-      </label>
+        <div style={{
+          display: 'flex', gap: 12, alignItems: 'flex-start',
+          padding: '12px 14px', background: '#F8FAFC', borderRadius: 10,
+          border: '1px solid #E2E8F0', marginBottom: 20, cursor: 'pointer',
+        }} onClick={() => setEngagedOnly(v => !v)}>
+          <div style={{
+            width: 18, height: 18, borderRadius: 4, flexShrink: 0, marginTop: 1,
+            background: engagedOnly ? '#0A0F1E' : '#fff',
+            border: engagedOnly ? 'none' : '1.5px solid #CBD5E1',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {engagedOnly && <span style={{ color: '#00D97E', fontSize: 12, fontWeight: 700 }}>✓</span>}
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#0F172A', marginBottom: 2 }}>
+              Hanya ke kontak aktif
+            </div>
+            <div style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
+              Aktif chat dalam 60 hari terakhir. Opt-out otomatis dibuang. Disarankan aktif untuk jaga quality rating.
+            </div>
+          </div>
+        </div>
 
-      <button onClick={send} disabled={busy || !waNumberId || !text.trim()} style={btn}>{busy ? 'Mengirim…' : 'Kirim broadcast'}</button>
+        <button
+          onClick={send}
+          disabled={busy || !waNumberId || !text.trim()}
+          style={{
+            padding: '12px 24px',
+            background: busy || !waNumberId || !text.trim() ? '#F1F5F9' : '#0A0F1E',
+            color: busy || !waNumberId || !text.trim() ? '#CBD5E1' : '#fff',
+            border: 0, borderRadius: 10, fontWeight: 700, fontSize: 14,
+            cursor: busy || !waNumberId || !text.trim() ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit',
+          }}
+        >
+          {busy ? 'Mengirim…' : 'Kirim broadcast'}
+        </button>
+      </div>
 
       {result && (
-        <div style={{ marginTop: 20, padding: 14, background: '#f6f8f6', borderRadius: 10, fontSize: 14 }}>
-          Terkirim: <b>{result.sent}</b> · Gagal: <b>{result.failed}</b> · Total target: <b>{result.total}</b>
+        <div style={{
+          background: '#F0FDF4', border: '1px solid #A7F3D0',
+          borderRadius: 12, padding: '16px 20px',
+          display: 'flex', gap: 24,
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#065F46' }}>{result.sent}</div>
+            <div style={{ fontSize: 12, color: '#6EE7B7', marginTop: 2 }}>Terkirim</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: result.failed > 0 ? '#EF4444' : '#94A3B8' }}>{result.failed}</div>
+            <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>Gagal</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#94A3B8' }}>{result.total}</div>
+            <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>Total target</div>
+          </div>
         </div>
       )}
-      <p style={{ fontSize: 12, color: '#999', marginTop: 16 }}>
-        Catatan: teks bebas cuma sampai ke pelanggan yang aktif dalam 24 jam. Untuk jangkauan penuh, pakai template resmi (menyusul).
-      </p>
+
+      <div style={{
+        marginTop: 16, padding: '12px 14px',
+        background: '#FFFBEB', border: '1px solid #FDE68A',
+        borderRadius: 10, fontSize: 13, color: '#92400E', lineHeight: 1.6,
+      }}>
+        ⚠️ Teks bebas hanya sampai ke kontak aktif dalam 24 jam. Untuk jangkauan penuh ke semua kontak, gunakan template resmi (segera hadir).
+      </div>
     </div>
   )
 }
 
-const lbl: React.CSSProperties = { display: 'block', fontSize: 13, color: '#666', marginBottom: 6, marginTop: 12 }
-const inp: React.CSSProperties = { width: '100%', padding: 10, border: '1px solid #ddd', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }
-const btn: React.CSSProperties = { padding: '11px 20px', background: '#111', color: '#fff', border: 0, borderRadius: 8, fontWeight: 600, cursor: 'pointer' }
+const lbl: React.CSSProperties = { display: 'block', fontSize: 13, color: '#374151', marginBottom: 6, fontWeight: 500 }
+const inp: React.CSSProperties = {
+  width: '100%', padding: '10px 12px',
+  border: '1px solid #E2E8F0', borderRadius: 8,
+  fontSize: 14, color: '#0F172A', background: '#F8FAFC',
+  boxSizing: 'border-box', fontFamily: 'inherit', outline: 'none',
+}

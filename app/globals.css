@@ -1,0 +1,40 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy: #0A0F1E;
+  --navy-2: #111827;
+  --navy-3: #1E293B;
+  --green: #00D97E;
+  --green-dim: #00D97E22;
+  --green-muted: #00D97E99;
+  --frost: #F0FDF4;
+  --white: #FFFFFF;
+  --slate: #94A3B8;
+  --slate-light: #CBD5E1;
+  --border: #1E293B;
+  --border-light: #E2E8F0;
+  --red-muted: #EF4444;
+  --text-body: #0F172A;
+}
+
+html { font-size: 16px; }
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: var(--frost);
+  color: var(--text-body);
+}
+
+::selection { background: var(--green); color: var(--navy); }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+/* focus ring */
+*:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+/* transitions */
+a, button { transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s; }
