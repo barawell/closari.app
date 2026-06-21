@@ -1,0 +1,73 @@
+// lib/ai.ts — AI auto-reply per-tenant via Anthropic (Claude).
+// Tiap tenant punya persona + system_prompt sendiri (tabel ai_configs).
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
+
+export type AiConfig = {
+  enabled?: boolean | null
+  persona_name?: string | null
+  system_prompt?: string | null
+  model?: string | null
+  cooldown_min?: number | null
+}
+
+export type Turn = { role: 'user' | 'assistant'; content: string }
+
+// Normalisasi riwayat: buang kosong, gabung turn berurutan role sama,
+// buang assistant di awal (Anthropic butuh mulai dari user & selang-seling).
+function normalize(turns: Turn[]): Turn[] {
+  const out: Turn[] = []
+  for (const t of turns) {
+    const c = (t.content || '').trim()
+    if (!c) continue
+    const last = out[out.length - 1]
+    if (last && last.role === t.role) last.content += '\n' + c
+    else out.push({ role: t.role, content: c })
+  }
+  while (out.length && out[0].role !== 'user') out.shift()
+  return out
+}
+
+export async function generateReply(config: AiConfig, turns: Turn[]): Promise<string | null> {
+  const key = process.env.ANTHROPIC_API_KEY
+  if (!key) return null
+
+  const messages = normalize(turns)
+  if (!messages.length || messages[messages.length - 1].role !== 'user') return null
+
+  const system =
+    (config.system_prompt && config.system_prompt.trim()) ||
+    `Kamu ${config.persona_name || 'asisten customer service'} yang membantu pelanggan via WhatsApp. ` +
+      `Jawab singkat, ramah, jelas, dalam Bahasa Indonesia. Jangan mengarang info yang tidak kamu ketahui; ` +
+      `kalau di luar kemampuanmu, arahkan dengan sopan ke admin manusia.`
+
+  try {
+    const res = await fetch(ANTHROPIC_URL, {
+      method: 'POST',
+      headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: config.model || 'claude-haiku-4-5',
+        max_tokens: 500,
+        system,
+        messages,
+      }),
+    })
+    if (!res.ok) {
+      console.error('[closari ai] gagal:', res.status, await res.text().catch(() => ''))
+      return null
+    }
+    const data: any = await res.json()
+    const text = (data?.content || [])
+      .filter((b: any) => b?.type === 'text')
+      .map((b: any) => b.text)
+      .join('')
+      .trim()
+    return text || null
+  } catch (e) {
+    console.error('[closari ai] error:', e)
+    return null
+  }
+}
