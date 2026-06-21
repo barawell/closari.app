@@ -23,7 +23,7 @@ export default function LoginPage() {
       } else {
         const { error } = await supabase.auth.signUp({ email, password })
         if (error) throw error
-        setInfo('Akun dibuat. Cek inbox email kamu untuk verifikasi, lalu login.')
+        setInfo('Akun dibuat. Cek email untuk verifikasi, lalu login.')
         setMode('in')
       }
     } catch (e: any) {
@@ -32,114 +32,84 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', background: '#0A0F1E' }}>
-      {/* Left panel */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: 40 }}>
-        <div style={{ width: '100%', maxWidth: 380 }}>
-          <Link href="/" style={{ textDecoration: 'none' }}>
-            <div style={{ fontWeight: 800, fontSize: 22, color: '#fff', letterSpacing: '-0.03em', marginBottom: 40 }}>
-              Clos<span style={{ color: '#00D97E' }}>ari</span>
-            </div>
+    <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '48px 40px', background: '#fff' }}>
+        <div style={{ width: '100%', maxWidth: 360 }}>
+          <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 7, marginBottom: 48 }}>
+            <img src="/logo.png" alt="Closari" width={22} height={22} style={{ display: "block", borderRadius: 5 }} />
+            <span style={{ fontWeight: 700, fontSize: 16, color: '#0D0D0D', letterSpacing: '-0.02em' }}>Closari</span>
           </Link>
 
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', marginBottom: 6 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0D0D0D', letterSpacing: '-0.03em', marginBottom: 6 }}>
             {mode === 'in' ? 'Selamat datang kembali' : 'Buat akun baru'}
           </h1>
-          <p style={{ color: '#64748B', fontSize: 14, marginBottom: 32 }}>
+          <p style={{ color: '#6B7280', fontSize: 14, marginBottom: 28, lineHeight: 1.5 }}>
             {mode === 'in' ? 'Masuk ke workspace kamu' : 'Mulai gratis, tanpa kartu kredit'}
           </p>
 
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ display: 'block', fontSize: 13, color: '#94A3B8', marginBottom: 6, fontWeight: 500 }}>Email</label>
-            <input
-              type="email" placeholder="kamu@perusahaan.com"
-              value={email} onChange={e => setEmail(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && submit()}
-              style={{
-                width: '100%', padding: '11px 14px',
-                background: '#111827', border: '1px solid #1E293B',
-                borderRadius: 8, fontSize: 14, color: '#fff',
-                outline: 'none', boxSizing: 'border-box',
-              }}
-            />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, color: '#374151', fontWeight: 500, marginBottom: 5 }}>Email</label>
+              <input type="email" placeholder="nama@perusahaan.com" value={email} onChange={e => setEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && submit()}
+                style={{ width: '100%', padding: '9px 12px', border: '1px solid #E5E5E5', borderRadius: 7, fontSize: 14, color: '#0D0D0D', background: '#fff', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                <label style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>Password</label>
+                {mode === 'in' && (
+                  <Link href="/forgot-password" style={{ fontSize: 12, color: '#16A34A', textDecoration: 'none', fontWeight: 500 }}>
+                    Lupa password?
+                  </Link>
+                )}
+              </div>
+              <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && submit()}
+                style={{ width: '100%', padding: '9px 12px', border: '1px solid #E5E5E5', borderRadius: 7, fontSize: 14, color: '#0D0D0D', background: '#fff', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
           </div>
 
-          <div style={{ marginBottom: 8 }}>
-            <label style={{ display: 'block', fontSize: 13, color: '#94A3B8', marginBottom: 6, fontWeight: 500 }}>Password</label>
-            <input
-              type="password" placeholder="••••••••"
-              value={password} onChange={e => setPassword(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && submit()}
-              style={{
-                width: '100%', padding: '11px 14px',
-                background: '#111827', border: '1px solid #1E293B',
-                borderRadius: 8, fontSize: 14, color: '#fff',
-                outline: 'none', boxSizing: 'border-box',
-              }}
-            />
-          </div>
+          {err && <div style={{ marginTop: 12, padding: '9px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 7, fontSize: 13, color: '#B91C1C' }}>{err}</div>}
+          {info && <div style={{ marginTop: 12, padding: '9px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 7, fontSize: 13, color: '#15803D' }}>{info}</div>}
 
-          {err && (
-            <div style={{ background: '#EF444411', border: '1px solid #EF444433', color: '#FCA5A5', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 14 }}>
-              {err}
-            </div>
-          )}
-          {info && (
-            <div style={{ background: '#00D97E11', border: '1px solid #00D97E33', color: '#6EE7B7', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 14 }}>
-              {info}
-            </div>
-          )}
-
-          <button
-            onClick={submit} disabled={busy || !email || !password}
-            style={{
-              width: '100%', padding: '12px 0',
-              background: busy || !email || !password ? '#1E293B' : '#00D97E',
-              color: busy || !email || !password ? '#475569' : '#0A0F1E',
-              border: 0, borderRadius: 8, fontSize: 15, fontWeight: 700,
-              cursor: busy || !email || !password ? 'not-allowed' : 'pointer',
-              marginTop: 8,
-            }}
-          >
+          <button onClick={submit} disabled={busy || !email || !password}
+            style={{ width: '100%', marginTop: 16, padding: '10px 0', background: busy || !email || !password ? '#F0F0F0' : '#0D0D0D', color: busy || !email || !password ? '#9CA3AF' : '#fff', border: 'none', borderRadius: 7, fontSize: 14, fontWeight: 500, cursor: busy || !email || !password ? 'not-allowed' : 'pointer', letterSpacing: '-0.01em' }}>
             {busy ? 'Memproses…' : mode === 'in' ? 'Masuk' : 'Buat akun'}
           </button>
 
-          <p style={{ fontSize: 13, marginTop: 20, color: '#475569', textAlign: 'center' }}>
+          <p style={{ fontSize: 13, marginTop: 18, color: '#9CA3AF', textAlign: 'center' }}>
             {mode === 'in' ? 'Belum punya akun? ' : 'Sudah punya akun? '}
             <button onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setErr(''); setInfo('') }}
-              style={{ color: '#00D97E', background: 'none', border: 0, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+              style={{ color: '#16A34A', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
               {mode === 'in' ? 'Daftar gratis' : 'Masuk'}
             </button>
           </p>
         </div>
       </div>
 
-      {/* Right panel — decorative */}
-      <div style={{
-        flex: 1, background: '#111827',
-        borderLeft: '1px solid #1E293B',
-        display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
-        padding: 48,
-      }}>
-        <div style={{ maxWidth: 360 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#00D97E', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 20 }}>
-            Mengapa Closari?
+      <div style={{ background: '#F7F7F7', borderLeft: '1px solid #E5E5E5', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '48px 48px' }}>
+        <div style={{ maxWidth: 340 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#16A34A', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 20 }}>Mengapa Closari</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {[
+              { headline: 'Balas lebih cepat', desc: 'AI Copilot baca setiap percakapan dan sarankan respons terbaik real-time.' },
+              { headline: 'Nomor tetap aman', desc: 'Filter kontak aktif dan cooldown otomatis — dibangun oleh tim yang pernah kena banned.' },
+              { headline: 'Satu inbox, semua tim', desc: 'Banyak agen, banyak nomor, satu tampilan yang rapi dan terorganisir.' },
+              { headline: 'Setup dalam menit', desc: 'Connect nomor, invite tim, aktifkan AI. Tidak perlu technical setup yang rumit.' },
+            ].map(item => (
+              <div key={item.headline} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <div style={{ width: 18, height: 18, borderRadius: '50%', flexShrink: 0, marginTop: 2, background: '#0D0D0D', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M2 5L4 7L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: '#0D0D0D', marginBottom: 2 }}>{item.headline}</div>
+                  <div style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.5 }}>{item.desc}</div>
+                </div>
+              </div>
+            ))}
           </div>
-          {[
-            { icon: '⚡', text: 'Balas lebih cepat dengan saran AI real-time' },
-            { icon: '🛡️', text: 'Nomor aman — filter kontak & cooldown built-in' },
-            { icon: '👥', text: 'Satu inbox untuk seluruh tim CS kamu' },
-            { icon: '📊', text: 'Audit trail setiap pesan yang keluar masuk' },
-          ].map(item => (
-            <div key={item.text} style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 20 }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: 8, background: '#00D97E11',
-                border: '1px solid #00D97E22', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: 16, flexShrink: 0,
-              }}>{item.icon}</div>
-              <p style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.5, margin: 0 }}>{item.text}</p>
-            </div>
-          ))}
         </div>
       </div>
     </div>
