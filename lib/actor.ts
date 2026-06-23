@@ -16,12 +16,16 @@ export async function getActor(req: Request): Promise<Actor | null> {
   const { data: { user } } = await anon.auth.getUser(token)
   if (!user) return null
 
-  const { data: m } = await supabaseAdmin
+  // DETERMINISTIK: kalau user kebetulan member >1 tenant, jangan ambil acak.
+  // Urutkan by created_at (membership paling awal = workspace utama),
+  // jadi /api/me dan semua query inbox SELALU pakai tenant yang sama.
+  const { data: rows } = await supabaseAdmin
     .from('tenant_members')
-    .select('tenant_id, role')
+    .select('tenant_id, role, created_at')
     .eq('user_id', user.id)
+    .order('created_at', { ascending: true })
     .limit(1)
-    .maybeSingle()
 
+  const m = rows?.[0]
   return { userId: user.id, tenantId: (m?.tenant_id as string) ?? null, role: (m?.role as string) ?? null }
 }
