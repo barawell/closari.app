@@ -110,6 +110,7 @@ export default function InboxPage() {
   const [search, setSearch] = useState('')
   const [soundOn, setSoundOn] = useState(true)
   const [sendingMedia, setSendingMedia] = useState(false)
+  const [tenantId, setTenantId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const endRef = useRef<HTMLDivElement>(null)
@@ -172,33 +173,49 @@ export default function InboxPage() {
     })()
   }, [])
 
-  // Realtime
+  // Ambil tenant id (buat filter realtime per-tenant)
+  useEffect(() => {
+    (async () => {
+      const res = await authFetch('/api/me')
+      const j = await res.json()
+      setTenantId(j?.tenant?.id || null)
+    })()
+  }, [])
+
+  // Realtime — DIFILTER per tenant biar tidak bocor antar client
   useEffect(() => {
     loadConvs()
+    if (!tenantId) return // tunggu tenantId siap dulu
+
     const channel = supabase
-      .channel('inbox-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wa_messages' }, (payload) => {
-        const newMsg = payload.new as Msg & { conversation_id: string; direction: string; sender: string }
-        const convId = newMsg.conversation_id
-        // Nada notif untuk pesan masuk dari customer (bukan balasan kita sendiri)
-        if (newMsg.direction === 'in' && newMsg.sender === 'contact' && soundRef.current) {
-          playNotifSound()
-        }
-        if (activeRef.current?.id === convId) {
-          setMsgs(prev => { if (prev.find(m => m.id === newMsg.id)) return prev; return [...prev, newMsg] })
-          setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
-        } else {
-          setUnread(prev => ({ ...prev, [convId]: (prev[convId] || 0) + 1 }))
-        }
-        loadConvs()
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wa_messages' }, (payload) => {
-        const updated = payload.new as Msg
-        setMsgs(prev => prev.map(m => m.id === updated.id ? { ...m, status: updated.status } : m))
-      })
+      .channel('inbox-realtime-' + tenantId)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'wa_messages', filter: 'tenant_id=eq.' + tenantId },
+        (payload) => {
+          const newMsg = payload.new as Msg & { conversation_id: string; direction: string; sender: string }
+          const convId = newMsg.conversation_id
+          // Nada notif untuk pesan masuk dari customer (bukan balasan kita sendiri)
+          if (newMsg.direction === 'in' && newMsg.sender === 'contact' && soundRef.current) {
+            playNotifSound()
+          }
+          if (activeRef.current?.id === convId) {
+            setMsgs(prev => { if (prev.find(m => m.id === newMsg.id)) return prev; return [...prev, newMsg] })
+            setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+          } else {
+            setUnread(prev => ({ ...prev, [convId]: (prev[convId] || 0) + 1 }))
+          }
+          loadConvs()
+        })
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'wa_messages', filter: 'tenant_id=eq.' + tenantId },
+        (payload) => {
+          const updated = payload.new as Msg
+          setMsgs(prev => prev.map(m => m.id === updated.id ? { ...m, status: updated.status } : m))
+        })
       .subscribe()
+
     return () => { supabase.removeChannel(channel) }
-  }, [loadConvs])
+  }, [loadConvs, tenantId])
 
   useEffect(() => {
     if (active) {

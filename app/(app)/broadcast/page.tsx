@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { authFetch } from '@/lib/client-fetch'
 
 type Template = { name: string; status: string; language: string; category: string; components: any[] }
-type Campaign = { id: string; kind: string; body: string; total: number; sent: number; failed: number; status: string; created_at: string }
+type Campaign = { id: string; kind: string; body: string; total: number; sent: number; failed: number; status: string; created_at: string; engaged_only?: boolean; reject_reason?: string | null }
 type Recipient = { phone: string; status: string; name?: string }
 
 function fmtDate(s: string) {
@@ -12,9 +12,10 @@ function fmtDate(s: string) {
 }
 
 export default function BroadcastPage() {
-  const [tab, setTab] = useState<'text' | 'template' | 'history'>('text')
+  const [tab, setTab] = useState<'text' | 'template' | 'approval' | 'history'>('text')
   const [numbers, setNumbers] = useState<any[]>([])
   const [waNumberId, setWaNumberId] = useState('')
+  const [me, setMe] = useState<any>(null)
 
   // Text broadcast state
   const [text, setText] = useState('')
@@ -22,7 +23,7 @@ export default function BroadcastPage() {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<any>(null)
 
-  // Quick-response box builder (2/3/4 opsi balasan)
+  // Quick-response box builder
   const [qrEnabled, setQrEnabled] = useState(false)
   const [qrOptions, setQrOptions] = useState<string[]>(['Ya, mau', 'Nanti dulu'])
 
@@ -33,11 +34,18 @@ export default function BroadcastPage() {
   const [templateBusy, setTemplateBusy] = useState(false)
   const [templateResult, setTemplateResult] = useState<any>(null)
 
+  // Approval queue state
+  const [pending, setPending] = useState<Campaign[]>([])
+  const [pendingLoading, setPendingLoading] = useState(false)
+  const [actingId, setActingId] = useState<string | null>(null)
+
   // History state
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [detail, setDetail] = useState<{ campaign: Campaign; recipients: Recipient[] } | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+
+  const isAdmin = me?.role === 'admin' || me?.role === 'owner'
 
   useEffect(() => {
     (async () => {
@@ -45,6 +53,8 @@ export default function BroadcastPage() {
       const j = await res.json()
       setNumbers(j.numbers || [])
       if (j.numbers?.[0]) setWaNumberId(j.numbers[0].id)
+      const meRes = await authFetch('/api/me')
+      setMe(await meRes.json())
     })()
   }, [])
 
@@ -56,8 +66,40 @@ export default function BroadcastPage() {
         setTemplatesLoading(false)
       })
     }
+    if (tab === 'approval') loadPending()
     if (tab === 'history') loadHistory()
   }, [tab])
+
+  async function loadPending() {
+    setPendingLoading(true)
+    const res = await authFetch('/api/broadcast?status=pending_approval')
+    const j = await res.json()
+    setPending(j.campaigns || [])
+    setPendingLoading(false)
+  }
+
+  async function approve(id: string) {
+    if (!confirm('Approve & kirim broadcast ini sekarang?')) return
+    setActingId(id)
+    try {
+      const res = await authFetch(`/api/broadcast/${id}/approve`, { method: 'POST' })
+      const j = await res.json()
+      if (!res.ok) { alert(j.error || 'Gagal approve'); return }
+      alert(`Terkirim: ${j.sent} · Gagal: ${j.failed} (total ${j.total})`)
+      loadPending()
+    } finally { setActingId(null) }
+  }
+
+  async function reject(id: string) {
+    const reason = prompt('Alasan tolak (opsional):') ?? ''
+    setActingId(id)
+    try {
+      const res = await authFetch(`/api/broadcast/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) })
+      const j = await res.json()
+      if (!res.ok) { alert(j.error || 'Gagal'); return }
+      loadPending()
+    } finally { setActingId(null) }
+  }
 
   async function loadHistory() {
     setHistoryLoading(true); setDetail(null)
@@ -75,7 +117,6 @@ export default function BroadcastPage() {
     setDetailLoading(false)
   }
 
-  // Gabung pesan + quick-response options jadi 1 teks (works dalam window 24 jam)
   function composeText(): string {
     if (!qrEnabled) return text
     const opts = qrOptions.map(o => o.trim()).filter(Boolean)
@@ -84,13 +125,14 @@ export default function BroadcastPage() {
     return `${text}\n\nBalas dengan angka:\n${lines}`
   }
 
-  async function sendText() {
+  async function submitForApproval() {
     setBusy(true); setResult(null)
     try {
       const res = await authFetch('/api/broadcast', { method: 'POST', body: JSON.stringify({ wa_number_id: waNumberId, text: composeText(), engagedOnly }) })
       const j = await res.json()
       if (!res.ok) { alert(j.error || 'Gagal'); return }
       setResult(j)
+      setText('')
     } finally { setBusy(false) }
   }
 
@@ -116,21 +158,24 @@ export default function BroadcastPage() {
     <div style={{ padding: '32px 36px', maxWidth: 720 }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: '#0D0D0D', letterSpacing: '-0.02em', marginBottom: 3 }}>Broadcast</h1>
-        <p style={{ fontSize: 13, color: '#6B7280' }}>Kirim pesan ke kontak aktif. Anti-spam aktif: 1 kontak maks 1× / 30 hari.</p>
+        <p style={{ fontSize: 13, color: '#6B7280' }}>Pengajuan broadcast wajib di-approve admin sebelum dikirim. Anti-spam: 1 kontak maks 1× / 30 hari.</p>
       </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 20, border: '1px solid #E5E5E5', borderRadius: 8, overflow: 'hidden', width: 'fit-content' }}>
-        {[{ id: 'text', label: 'Teks bebas' }, { id: 'template', label: 'Template resmi' }, { id: 'history', label: 'Riwayat' }].map(t => (
+        {[{ id: 'text', label: 'Teks bebas' }, { id: 'template', label: 'Template resmi' }, { id: 'approval', label: 'Approval' }, { id: 'history', label: 'Riwayat' }].map(t => (
           <button key={t.id} onClick={() => setTab(t.id as any)}
-            style={{ padding: '8px 18px', fontSize: 13, fontWeight: tab === t.id ? 600 : 400, background: tab === t.id ? '#0D0D0D' : '#fff', color: tab === t.id ? '#fff' : '#6B7280', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+            style={{ padding: '8px 18px', fontSize: 13, fontWeight: tab === t.id ? 600 : 400, background: tab === t.id ? '#0D0D0D' : '#fff', color: tab === t.id ? '#fff' : '#6B7280', border: 'none', cursor: 'pointer', fontFamily: 'inherit', position: 'relative' }}>
             {t.label}
+            {t.id === 'approval' && pending.length > 0 && (
+              <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, background: '#16A34A', color: '#fff', padding: '1px 6px', borderRadius: 999 }}>{pending.length}</span>
+            )}
           </button>
         ))}
       </div>
 
-      {/* Nomor selector (sembunyikan di tab history) */}
-      {tab !== 'history' && (
+      {/* Nomor selector (sembunyikan di approval/history) */}
+      {(tab === 'text' || tab === 'template') && (
         <div style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 10, padding: '16px 18px', marginBottom: 12 }}>
           <label style={lbl}>Kirim dari nomor</label>
           <select value={waNumberId} onChange={e => setWaNumberId(e.target.value)} style={inp}>
@@ -200,10 +245,10 @@ export default function BroadcastPage() {
             </div>
           </div>
           <div style={{ padding: '12px 18px', background: '#F7F7F7', borderTop: '1px solid #E5E5E5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Kirim hanya konten yang relevan & bernilai.</p>
-            <button onClick={sendText} disabled={busy || !waNumberId || !text.trim()}
+            <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Masuk antrian approval dulu, tidak langsung terkirim.</p>
+            <button onClick={submitForApproval} disabled={busy || !waNumberId || !text.trim()}
               style={{ padding: '9px 20px', background: busy || !waNumberId || !text.trim() ? '#F0F0F0' : '#0D0D0D', color: busy || !waNumberId || !text.trim() ? '#9CA3AF' : '#fff', border: 'none', borderRadius: 7, fontWeight: 500, fontSize: 13, cursor: busy || !waNumberId || !text.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-              {busy ? 'Mengirim…' : 'Kirim broadcast'}
+              {busy ? 'Mengajukan…' : 'Ajukan untuk approval'}
             </button>
           </div>
         </div>
@@ -244,6 +289,47 @@ export default function BroadcastPage() {
                 style={{ padding: '9px 20px', background: templateBusy || !waNumberId || !selectedTemplate ? '#F0F0F0' : '#0D0D0D', color: templateBusy || !waNumberId || !selectedTemplate ? '#9CA3AF' : '#fff', border: 'none', borderRadius: 7, fontWeight: 500, fontSize: 13, cursor: templateBusy || !waNumberId || !selectedTemplate ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
                 {templateBusy ? 'Mengirim…' : 'Kirim template'}
               </button>
+            </div>
+          )}
+        </div>
+      ) : tab === 'approval' ? (
+        // APPROVAL QUEUE
+        <div>
+          {!isAdmin && (
+            <div style={{ marginBottom: 12, padding: '10px 14px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, fontSize: 12, color: '#92400E' }}>
+              Kamu bukan admin. Hanya bisa melihat antrian; tombol approve/reject nonaktif.
+            </div>
+          )}
+          {pendingLoading ? (
+            <div style={{ fontSize: 13, color: '#9CA3AF', padding: 20 }}>Memuat antrian…</div>
+          ) : pending.length === 0 ? (
+            <div style={{ padding: '40px 16px', textAlign: 'center', fontSize: 13, color: '#9CA3AF', background: '#FAFAFA', borderRadius: 10, border: '1px solid #F0F0F0' }}>
+              Tidak ada broadcast yang menunggu approval.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {pending.map(c => (
+                <div key={c.id} style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 10, padding: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#B45309', background: '#FFFBEB', border: '1px solid #FDE68A', padding: '2px 8px', borderRadius: 999 }}>MENUNGGU APPROVAL</span>
+                    <span style={{ fontSize: 11, color: '#9CA3AF' }}>{fmtDate(c.created_at)}</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: '#0D0D0D', whiteSpace: 'pre-wrap', lineHeight: 1.6, marginBottom: 10, padding: '10px 12px', background: '#FAFAFA', borderRadius: 8, border: '1px solid #F0F0F0' }}>{c.body}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: 12, color: '#6B7280' }}>Estimasi penerima: <b style={{ color: '#0D0D0D' }}>{c.total}</b> {c.engaged_only ? '· kontak aktif' : '· semua'}</div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => reject(c.id)} disabled={!isAdmin || actingId === c.id}
+                        style={{ padding: '7px 14px', background: '#fff', color: !isAdmin ? '#D4D4D4' : '#DC2626', border: `1px solid ${!isAdmin ? '#F0F0F0' : '#FECACA'}`, borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: !isAdmin ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                        Tolak
+                      </button>
+                      <button onClick={() => approve(c.id)} disabled={!isAdmin || actingId === c.id}
+                        style={{ padding: '7px 16px', background: !isAdmin ? '#F0F0F0' : '#16A34A', color: !isAdmin ? '#9CA3AF' : '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: !isAdmin ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                        {actingId === c.id ? 'Mengirim…' : 'Approve & Kirim'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -288,10 +374,16 @@ export default function BroadcastPage() {
                     <div style={{ fontSize: 13, color: '#0D0D0D', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 12 }}>{c.body}</div>
                     <div style={{ fontSize: 11, color: '#9CA3AF', flexShrink: 0 }}>{fmtDate(c.created_at)}</div>
                   </div>
-                  <div style={{ display: 'flex', gap: 14, fontSize: 12 }}>
-                    <span style={{ color: '#15803D', fontWeight: 600 }}>✓ {c.sent} terkirim</span>
-                    {c.failed > 0 && <span style={{ color: '#DC2626', fontWeight: 600 }}>✕ {c.failed} gagal</span>}
-                    <span style={{ color: '#9CA3AF' }}>dari {c.total}</span>
+                  <div style={{ display: 'flex', gap: 14, fontSize: 12, alignItems: 'center' }}>
+                    {c.status === 'rejected' ? (
+                      <span style={{ color: '#DC2626', fontWeight: 600 }}>✕ Ditolak{c.reject_reason ? ` · ${c.reject_reason}` : ''}</span>
+                    ) : (
+                      <>
+                        <span style={{ color: '#15803D', fontWeight: 600 }}>✓ {c.sent} terkirim</span>
+                        {c.failed > 0 && <span style={{ color: '#DC2626', fontWeight: 600 }}>✕ {c.failed} gagal</span>}
+                        <span style={{ color: '#9CA3AF' }}>dari {c.total}</span>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -301,17 +393,21 @@ export default function BroadcastPage() {
         </div>
       )}
 
-      {(result || templateResult) && (() => {
-        const r = result || templateResult
-        return (
-          <div style={{ marginTop: 14, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '16px 20px', display: 'flex', gap: 28, flexWrap: 'wrap' }}>
-            <Stat label="Terkirim" value={r.sent} color="#15803D" />
-            <Stat label="Gagal" value={r.failed} color={r.failed > 0 ? '#DC2626' : '#9CA3AF'} />
-            <Stat label="Total" value={r.total} color="#6B7280" />
-            {typeof r.skipped === 'number' && r.skipped > 0 && <Stat label="Di-skip (cooldown)" value={r.skipped} color="#B45309" />}
-          </div>
-        )
-      })()}
+      {result && (
+        <div style={{ marginTop: 14, background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '16px 20px' }}>
+          <div style={{ fontSize: 13, color: '#92400E', fontWeight: 600, marginBottom: 4 }}>Broadcast diajukan ✓</div>
+          <div style={{ fontSize: 12, color: '#92400E' }}>Estimasi {result.eligible_count} penerima. Menunggu approval admin di tab <b>Approval</b>.</div>
+        </div>
+      )}
+
+      {templateResult && (
+        <div style={{ marginTop: 14, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '16px 20px', display: 'flex', gap: 28, flexWrap: 'wrap' }}>
+          <Stat label="Terkirim" value={templateResult.sent} color="#15803D" />
+          <Stat label="Gagal" value={templateResult.failed} color={templateResult.failed > 0 ? '#DC2626' : '#9CA3AF'} />
+          <Stat label="Total" value={templateResult.total} color="#6B7280" />
+          {typeof templateResult.skipped === 'number' && templateResult.skipped > 0 && <Stat label="Di-skip (cooldown)" value={templateResult.skipped} color="#B45309" />}
+        </div>
+      )}
     </div>
   )
 }

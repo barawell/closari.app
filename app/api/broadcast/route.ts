@@ -1,19 +1,17 @@
+// app/api/broadcast/route.ts
+// ALUR BARU (approval):
+//   POST  -> TIDAK langsung kirim. Bikin campaign status 'pending_approval'
+//            + hitung estimasi penerima. Tunggu approval admin.
+//   GET   -> daftar campaign (default semua; ?status=pending_approval utk antrian)
+
 import { NextResponse } from 'next/server'
 import { getActor } from '@/lib/actor'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { sendText } from '@/lib/wa'
+import { computeEligible } from '@/lib/broadcast-send'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-// ── Anti-spam config (perketat semua) ───────────────────────
-const BROADCAST_COOLDOWN_DAYS = 30   // 1 kontak max 1x broadcast / 30 hari
-const ENGAGED_WINDOW_DAYS = 60       // "aktif" = ada pesan masuk 60 hari terakhir
-const SEND_DELAY_MS = 600            // ~1.6 pesan/detik (lebih pelan = lebih aman)
-const MAX_PER_RUN = 500              // batasi volume sekali jalan
-
+// ── POST: ajukan broadcast (masuk antrian approval) ──────────────────
 export async function POST(req: Request) {
   const actor = await getActor(req)
   if (!actor?.tenantId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -25,39 +23,15 @@ export async function POST(req: Request) {
   if (!waNumberId || !text) return NextResponse.json({ error: 'wa_number_id & text wajib' }, { status: 400 })
   if (text.length < 10) return NextResponse.json({ error: 'Pesan terlalu pendek. Min 10 karakter biar tidak terdeteksi spam.' }, { status: 400 })
 
-  // Nomor pengirim + token
+  // Validasi nomor milik tenant ini
   const { data: num } = await supabaseAdmin
     .from('wa_numbers').select('id, phone_number_id').eq('id', waNumberId).eq('tenant_id', actor.tenantId).maybeSingle()
   if (!num) return NextResponse.json({ error: 'nomor tidak ditemukan' }, { status: 404 })
-  const { data: sec } = await supabaseAdmin
-    .from('wa_number_secrets').select('access_token').eq('wa_number_id', num.id).maybeSingle()
-  if (!sec?.access_token) return NextResponse.json({ error: 'token nomor tidak ada' }, { status: 400 })
 
-  // Target: bukan opt-out, (default) engaged, DAN belum di-broadcast dalam cooldown.
-  let q = supabaseAdmin.from('wa_contacts')
-    .select('id, phone, last_message_at, last_broadcast_at')
-    .eq('tenant_id', actor.tenantId).eq('opted_out', false)
-  if (engagedOnly) {
-    const since = new Date(Date.now() - ENGAGED_WINDOW_DAYS * 86400000).toISOString()
-    q = q.gte('last_message_at', since)
-  }
-  const { data: contacts } = await q.limit(2000)
+  // Estimasi penerima (buat ditampilkan ke approver, belum dikirim)
+  const eligible = await computeEligible(actor.tenantId, engagedOnly)
 
-  // Filter cooldown anti-spam: skip kontak yang baru di-broadcast < 30 hari.
-  const cooldownCut = Date.now() - BROADCAST_COOLDOWN_DAYS * 86400000
-  const eligible = (contacts || []).filter((c: any) => {
-    if (!c.phone) return false
-    if (!c.last_broadcast_at) return true
-    return new Date(c.last_broadcast_at).getTime() < cooldownCut
-  }).slice(0, MAX_PER_RUN)
-
-  const skipped = (contacts || []).length - eligible.length
-  if (!eligible.length) {
-    return NextResponse.json({ error: 'Tidak ada penerima eligible (opt-out / tidak aktif / masih dalam cooldown 30 hari).', total: 0, skipped }, { status: 400 })
-  }
-
-  // Buat campaign record (history)
-  const { data: campaign } = await supabaseAdmin.from('broadcast_campaigns').insert({
+  const { data: campaign, error } = await supabaseAdmin.from('broadcast_campaigns').insert({
     tenant_id: actor.tenantId,
     wa_number_id: num.id,
     sent_by: actor.userId,
@@ -65,41 +39,37 @@ export async function POST(req: Request) {
     body: text,
     engaged_only: engagedOnly,
     total: eligible.length,
-    status: 'sending',
+    sent: 0,
+    failed: 0,
+    status: 'pending_approval',
   }).select('id').maybeSingle()
-  const campaignId = campaign?.id as string | undefined
 
-  let sent = 0, failed = 0
-  const nowIso = new Date().toISOString()
-  const recipientRows: any[] = []
+  if (error || !campaign) return NextResponse.json({ error: error?.message || 'gagal bikin campaign' }, { status: 500 })
 
-  for (const c of eligible) {
-    const ok = await sendText(num.phone_number_id as string, sec.access_token as string, c.phone, text)
-    ok ? sent++ : failed++
+  return NextResponse.json({
+    pending: true,
+    campaign_id: campaign.id,
+    eligible_count: eligible.length,
+    message: 'Broadcast diajukan. Menunggu approval admin sebelum dikirim.',
+  })
+}
 
-    recipientRows.push({
-      campaign_id: campaignId,
-      tenant_id: actor.tenantId,
-      contact_id: c.id,
-      phone: c.phone,
-      status: ok ? 'sent' : 'failed',
-    })
-    // Tandai last_broadcast_at hanya kalau berhasil terkirim
-    if (ok) {
-      await supabaseAdmin.from('wa_contacts')
-        .update({ last_broadcast_at: nowIso })
-        .eq('id', c.id)
-    }
-    await sleep(SEND_DELAY_MS)
-  }
+// ── GET: daftar campaign ─────────────────────────────────────────────
+export async function GET(req: Request) {
+  const actor = await getActor(req)
+  if (!actor?.tenantId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  // Simpan penerima + update campaign
-  if (campaignId && recipientRows.length) {
-    await supabaseAdmin.from('broadcast_recipients').insert(recipientRows)
-    await supabaseAdmin.from('broadcast_campaigns')
-      .update({ sent, failed, status: 'done' })
-      .eq('id', campaignId)
-  }
+  const status = new URL(req.url).searchParams.get('status') // optional filter
 
-  return NextResponse.json({ total: eligible.length, sent, failed, skipped, campaign_id: campaignId })
+  let q = supabaseAdmin
+    .from('broadcast_campaigns')
+    .select('id, kind, body, total, sent, failed, status, engaged_only, created_at, approved_at, rejected_at, reject_reason, wa_number_id')
+    .eq('tenant_id', actor.tenantId)
+    .order('created_at', { ascending: false })
+    .limit(100)
+
+  if (status) q = q.eq('status', status)
+
+  const { data } = await q
+  return NextResponse.json({ campaigns: data || [] })
 }
