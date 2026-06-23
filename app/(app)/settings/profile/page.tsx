@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { authFetch } from '@/lib/client-fetch'
 
 export default function ProfilePage() {
@@ -7,9 +7,15 @@ export default function ProfilePage() {
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [origDisplayName, setOrigDisplayName] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [role, setRole] = useState('')
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
+
+  // Avatar upload
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarErr, setAvatarErr] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Change email
   const [showEmailForm, setShowEmailForm] = useState(false)
@@ -23,17 +29,18 @@ export default function ProfilePage() {
   const [passwordErr, setPasswordErr] = useState('')
   const [submittingPwd, setSubmittingPwd] = useState(false)
 
-  useEffect(() => {
-    (async () => {
-      const res = await authFetch('/api/me')
-      const j = await res.json()
-      setEmail(j.email || '')
-      setDisplayName(j.displayName || '')
-      setOrigDisplayName(j.displayName || '')
-      setRole(j.role || '')
-      setLoaded(true)
-    })()
-  }, [])
+  async function load() {
+    const res = await authFetch('/api/me')
+    const j = await res.json()
+    setEmail(j.email || '')
+    setDisplayName(j.displayName || '')
+    setOrigDisplayName(j.displayName || '')
+    setAvatarUrl(j.avatarUrl || null)
+    setRole(j.role || '')
+    setLoaded(true)
+  }
+
+  useEffect(() => { load() }, [])
 
   async function saveName() {
     setSaving(true)
@@ -44,6 +51,34 @@ export default function ProfilePage() {
         setSavedAt(Date.now())
       }
     } finally { setSaving(false) }
+  }
+
+  async function onPickAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarErr(''); setUploadingAvatar(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await authFetch('/api/me/profile-photo', { method: 'POST', body: fd })
+      const j = await res.json()
+      if (res.ok) setAvatarUrl(j.avatar_url)
+      else setAvatarErr(j.error || 'Gagal upload foto')
+    } catch {
+      setAvatarErr('Gagal upload foto')
+    } finally {
+      setUploadingAvatar(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  async function removeAvatar() {
+    setAvatarErr(''); setUploadingAvatar(true)
+    try {
+      const res = await authFetch('/api/me/profile-photo', { method: 'DELETE' })
+      if (res.ok) setAvatarUrl(null)
+      else setAvatarErr('Gagal hapus foto')
+    } finally { setUploadingAvatar(false) }
   }
 
   async function requestEmailChange() {
@@ -76,8 +111,34 @@ export default function ProfilePage() {
 
   if (!loaded) return <div style={{ fontSize: 13, color: '#9CA3AF' }}>Memuat…</div>
 
+  const initial = (displayName || email || '?')[0].toUpperCase()
+
   return (
     <div>
+      {/* Foto Profil — semua member boleh ganti fotonya sendiri */}
+      <Section title="Foto Profil" description="Foto yang dilihat anggota tim. Kamu bisa ganti foto kamu sendiri.">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: '#F0F0F0', border: '1px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {avatarUrl
+              ? <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ fontSize: 28, fontWeight: 600, color: '#6B7280' }}>{initial}</span>}
+          </div>
+          <div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => fileInputRef.current?.click()} disabled={uploadingAvatar} style={btnPrimary(uploadingAvatar)}>
+                {uploadingAvatar ? 'Mengunggah…' : avatarUrl ? 'Ganti foto' : 'Unggah foto'}
+              </button>
+              {avatarUrl && (
+                <button onClick={removeAvatar} disabled={uploadingAvatar} style={btnSecondary}>Hapus</button>
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 8 }}>PNG, JPG, atau WEBP. Maks 2 MB.</div>
+            {avatarErr && <div style={{ fontSize: 12, color: '#B91C1C', marginTop: 6 }}>{avatarErr}</div>}
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={onPickAvatar} style={{ display: 'none' }} />
+        </div>
+      </Section>
+
       {/* Display Name */}
       <Section title="Nama Tampilan" description="Nama yang dilihat anggota tim lain di workspace.">
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>

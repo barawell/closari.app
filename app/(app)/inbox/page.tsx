@@ -3,6 +3,33 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { authFetch } from '@/lib/client-fetch'
 import { supabase } from '@/lib/supabase'
 
+// Nada notifikasi pesan masuk — di-generate via WebAudio (gak butuh file mp3).
+let _audioCtx: AudioContext | null = null
+function playNotifSound() {
+  try {
+    if (typeof window === 'undefined') return
+    const Ctx = window.AudioContext || (window as any).webkitAudioContext
+    if (!Ctx) return
+    if (!_audioCtx) _audioCtx = new Ctx()
+    const ctx = _audioCtx
+    if (ctx.state === 'suspended') ctx.resume()
+    const now = ctx.currentTime
+    // dua nada pendek (ding-dong)
+    ;[ [880, 0], [1180, 0.12] ].forEach(([freq, t]) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq as number
+      gain.gain.setValueAtTime(0.0001, now + (t as number))
+      gain.gain.exponentialRampToValueAtTime(0.18, now + (t as number) + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + (t as number) + 0.22)
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.start(now + (t as number))
+      osc.stop(now + (t as number) + 0.24)
+    })
+  } catch { /* ignore */ }
+}
+
 type Conv = { id: string; status: string; last_message_at: string; tags?: string[]; contact: any }
 type Msg = { id: string; direction: string; body: string; sender: string; created_at: string; status?: string }
 type ContactDetail = { contact: any; stats: { total_messages_in: number; total_messages_out: number; total_conversations: number; days_since_first_contact: number | null; days_since_last_order: number | null } }
@@ -51,10 +78,23 @@ export default function InboxPage() {
   const [showQR, setShowQR] = useState(false)
   const [rightTab, setRightTab] = useState<'contact' | 'copilot'>('contact')
   const [search, setSearch] = useState('')
+  const [soundOn, setSoundOn] = useState(true)
 
   const endRef = useRef<HTMLDivElement>(null)
   const activeRef = useRef<Conv | null>(null)
   activeRef.current = active
+  const soundRef = useRef(true)
+  soundRef.current = soundOn
+
+  // Load sound preference (in-memory only; resets per session)
+  function toggleSound() {
+    setSoundOn(v => {
+      const next = !v
+      // unlock audio on user gesture
+      if (next) playNotifSound()
+      return next
+    })
+  }
 
   const contactOf = (c: Conv) => (Array.isArray(c?.contact) ? c.contact[0] : c?.contact) || {}
 
@@ -106,8 +146,12 @@ export default function InboxPage() {
     const channel = supabase
       .channel('inbox-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wa_messages' }, (payload) => {
-        const newMsg = payload.new as Msg & { conversation_id: string }
+        const newMsg = payload.new as Msg & { conversation_id: string; direction: string; sender: string }
         const convId = newMsg.conversation_id
+        // Nada notif untuk pesan masuk dari customer (bukan balasan kita sendiri)
+        if (newMsg.direction === 'in' && newMsg.sender === 'contact' && soundRef.current) {
+          playNotifSound()
+        }
         if (activeRef.current?.id === convId) {
           setMsgs(prev => { if (prev.find(m => m.id === newMsg.id)) return prev; return [...prev, newMsg] })
           setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
@@ -222,7 +266,17 @@ export default function InboxPage() {
               <div style={{ fontSize: 13, fontWeight: 600, color: '#0D0D0D' }}>Percakapan</div>
               <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>{convs.length} aktif · realtime</div>
             </div>
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#16A34A', boxShadow: '0 0 0 2px #F0FDF4' }} title="Realtime aktif" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button onClick={toggleSound} title={soundOn ? 'Nada notif: ON' : 'Nada notif: OFF'}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', color: soundOn ? '#16A34A' : '#D4D4D4' }}>
+                {soundOn ? (
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 6v3h2l3 2.5v-8L5 6H3Z" fill="currentColor"/><path d="M10 5.5C10.7 6.2 11 6.8 11 7.5C11 8.2 10.7 8.8 10 9.5M11.5 4C12.7 5 13 6.2 13 7.5C13 8.8 12.7 10 11.5 11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                ) : (
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 6v3h2l3 2.5v-8L5 6H3Z" fill="currentColor"/><path d="M10 6L13 9M13 6L10 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                )}
+              </button>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#16A34A', boxShadow: '0 0 0 2px #F0FDF4' }} title="Realtime aktif" />
+            </div>
           </div>
           <input
             value={search} onChange={e => setSearch(e.target.value)}

@@ -14,16 +14,18 @@ export async function GET(req: Request) {
   const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } })
   const { data: { user } } = await anon.auth.getUser(token)
 
-  // Display name dari tenant_members
+  // Display name + avatar dari tenant_members
   let displayName: string | null = null
+  let avatarUrl: string | null = null
   if (actor.tenantId) {
     const { data: m } = await supabaseAdmin
       .from('tenant_members')
-      .select('display_name')
+      .select('display_name, avatar_url')
       .eq('user_id', actor.userId)
       .eq('tenant_id', actor.tenantId)
       .maybeSingle()
     displayName = m?.display_name || null
+    avatarUrl = m?.avatar_url || null
   }
 
   let tenant = null
@@ -36,6 +38,7 @@ export async function GET(req: Request) {
     userId: actor.userId,
     email: user?.email || '',
     displayName,
+    avatarUrl,
     role: actor.role,
     tenant,
   })

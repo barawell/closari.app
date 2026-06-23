@@ -58,7 +58,10 @@ export async function POST(req: NextRequest) {
         for (const msg of value.messages || []) {
           await handleInbound(auth, phoneNumberId, msg, profileName)
         }
-        // value.statuses (delivered/read/failed) bisa ditangani di chunk berikutnya.
+        // Update status delivered/read/failed utk pesan keluar.
+        for (const st of value.statuses || []) {
+          await handleStatus(auth, st)
+        }
       }
     }
   } catch (e) {
@@ -67,6 +70,18 @@ export async function POST(req: NextRequest) {
 
   // Meta wajib dapat 200 cepat.
   return NextResponse.json({ ok: true })
+}
+
+// Update status pesan keluar (sent → delivered → read, atau failed).
+async function handleStatus(auth: NumberAuth, st: any) {
+  const waId: string | undefined = st?.id
+  const status: string | undefined = st?.status // 'sent'|'delivered'|'read'|'failed'
+  if (!waId || !status) return
+  await supabaseAdmin
+    .from('wa_messages')
+    .update({ status })
+    .eq('tenant_id', auth.tenantId)
+    .eq('wa_message_id', waId)
 }
 
 async function handleInbound(auth: NumberAuth, phoneNumberId: string, msg: any, profileName?: string) {
@@ -91,11 +106,19 @@ async function handleInbound(auth: NumberAuth, phoneNumberId: string, msg: any, 
 
   const now = new Date().toISOString()
 
-  // Upsert kontak (per tenant)
+  // Upsert kontak (per tenant). Customer yang balas = otomatis "terkontak"
+  // (hilang dari daftar Perlu Follow Up biar gak dobel di-FU).
   const { data: contact } = await supabaseAdmin
     .from('wa_contacts')
     .upsert(
-      { tenant_id: auth.tenantId, phone: from, name: profileName || undefined, last_message_at: now },
+      {
+        tenant_id: auth.tenantId,
+        phone: from,
+        name: profileName || undefined,
+        last_message_at: now,
+        followup_status: 'terkontak',
+        followup_contacted_at: now,
+      },
       { onConflict: 'tenant_id,phone' },
     )
     .select('id')
@@ -135,10 +158,11 @@ async function handleInbound(auth: NumberAuth, phoneNumberId: string, msg: any, 
     conversationId = (nc?.id as string) || null
   }
 
-  // Simpan pesan masuk
+  // Simpan pesan masuk — FIX: sertakan contact_id (sebelumnya hilang → stats 0)
   await supabaseAdmin.from('wa_messages').insert({
     tenant_id: auth.tenantId,
     conversation_id: conversationId,
+    contact_id: contactId,
     wa_message_id: waMessageId,
     direction: 'in',
     type,
@@ -148,11 +172,11 @@ async function handleInbound(auth: NumberAuth, phoneNumberId: string, msg: any, 
 
   // AI auto-reply per-tenant — skip kalau pesan ini command opt-out (STOP/MULAI).
   const isOptCmd = STOP_WORDS.includes(kw) || START_WORDS.includes(kw)
-  if (!isOptCmd) await maybeAiReply(auth, phoneNumberId, conversationId, from)
+  if (!isOptCmd) await maybeAiReply(auth, phoneNumberId, conversationId, contactId, from)
 }
 
 // Balas otomatis pakai AI kalau tenant mengaktifkannya di ai_configs.
-async function maybeAiReply(auth: NumberAuth, phoneNumberId: string, conversationId: string | null, to: string) {
+async function maybeAiReply(auth: NumberAuth, phoneNumberId: string, conversationId: string | null, contactId: string | undefined, to: string) {
   if (!conversationId) return
 
   const { data: cfg } = await supabaseAdmin
@@ -186,6 +210,7 @@ async function maybeAiReply(auth: NumberAuth, phoneNumberId: string, conversatio
   await supabaseAdmin.from('wa_messages').insert({
     tenant_id: auth.tenantId,
     conversation_id: conversationId,
+    contact_id: contactId,
     direction: 'out',
     type: 'text',
     body: reply,

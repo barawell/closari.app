@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   // Ambil percakapan + kontak + nomor (tenant-scoped)
   const { data: conv } = await supabaseAdmin
     .from('wa_conversations')
-    .select('id, wa_number_id, contact:wa_contacts(phone)')
+    .select('id, wa_number_id, contact_id, contact:wa_contacts(phone)')
     .eq('tenant_id', actor.tenantId).eq('id', conversationId).maybeSingle()
   const contact: any = conv?.contact
   const to = Array.isArray(contact) ? contact[0]?.phone : contact?.phone
@@ -36,6 +36,7 @@ export async function POST(req: Request) {
   await supabaseAdmin.from('wa_messages').insert({
     tenant_id: actor.tenantId,
     conversation_id: conversationId,
+    contact_id: conv.contact_id,
     direction: 'out',
     type: 'text',
     body: text,

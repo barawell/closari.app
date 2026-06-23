@@ -19,6 +19,10 @@ const NAV = [
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5C2 7.5 4 4 7.5 4C11 4 13 7.5 13 7.5C13 7.5 11 11 7.5 11C4 11 2 7.5 2 7.5Z" stroke="currentColor" strokeWidth="1.4"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>,
   },
   {
+    href: '/followup', label: 'Follow Up',
+    icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 2.5h9v7l-3-2-3 2v-7Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M3 11.5h9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
+  },
+  {
     href: '/numbers', label: 'Nomor WhatsApp',
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="3" y="1" width="9" height="13" rx="2" stroke="currentColor" strokeWidth="1.4"/><circle cx="7.5" cy="11" r="1" fill="currentColor"/></svg>,
   },
@@ -36,6 +40,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [tenantLogo, setTenantLogo] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
 
@@ -49,6 +54,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       setTenantLogo(j.tenant.logo_url || null)
       setUserEmail(j.email || '')
       setDisplayName(j.displayName || '')
+      setAvatarUrl(j.avatarUrl || null)
       setReady(true)
     })()
   }, [router, pathname])  // re-fetch on path change to reflect updates
@@ -126,8 +132,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             background: '#fff', border: '1px solid #E5E5E5',
             display: 'flex', alignItems: 'center', gap: 9, fontFamily: 'inherit',
           }}>
-            <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#F0FDF4', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, border: '1px solid #BBF7D0', flexShrink: 0 }}>
-              {userInitial}
+            <div style={{ width: 26, height: 26, borderRadius: '50%', overflow: 'hidden', background: '#F0FDF4', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, border: '1px solid #BBF7D0', flexShrink: 0 }}>
+              {avatarUrl ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : userInitial}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 500, color: '#0D0D0D', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
