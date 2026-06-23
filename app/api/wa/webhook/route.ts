@@ -35,7 +35,9 @@ function validSignature(raw: string, sig: string | null): boolean {
 // ── POST: event masuk (multi-tenant) ───────────────────────────────────────
 export async function POST(req: NextRequest) {
   const raw = await req.text()
-  if (!validSignature(raw, req.headers.get('x-hub-signature-256'))) {
+  const sig = req.headers.get('x-hub-signature-256')
+  if (!validSignature(raw, sig)) {
+    console.error('[closari webhook] DITOLAK: signature tidak cocok. Cek META_APP_SECRET di Vercel. has_secret=' + !!APP_SECRET + ' has_sig=' + !!sig)
     return new NextResponse('bad signature', { status: 401 })
   }
 
@@ -47,13 +49,20 @@ export async function POST(req: NextRequest) {
       for (const change of entry.changes || []) {
         const value = change.value || {}
         const phoneNumberId: string | undefined = value?.metadata?.phone_number_id
+        const nMsg = (value.messages || []).length
+        const nStatus = (value.statuses || []).length
+        console.log(`[closari webhook] event diterima: phone_number_id=${phoneNumberId} pesan=${nMsg} status=${nStatus}`)
         if (!phoneNumberId) continue
 
         const auth = await getNumberAuth(phoneNumberId)
-        if (!auth) continue
+        if (!auth) {
+          console.error(`[closari webhook] DIABAIKAN: phone_number_id=${phoneNumberId} tidak terdaftar di wa_numbers / token kosong`)
+          continue
+        }
 
         const profileName: string | undefined = value?.contacts?.[0]?.profile?.name
         for (const msg of value.messages || []) {
+          console.log(`[closari webhook] simpan pesan dari ${msg.from} type=${msg.type}`)
           await handleInbound(auth, phoneNumberId, msg, profileName)
         }
         for (const st of value.statuses || []) {
