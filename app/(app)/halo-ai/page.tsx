@@ -20,7 +20,7 @@ type Config = {
 
 const DEFAULT: Config = {
   enabled: false,
-  persona_name: 'Halo AI',
+  persona_name: 'Aira',
   persona_role: 'asisten customer service',
   system_prompt: '',
   business_info: '',
@@ -108,7 +108,7 @@ export default function HaloAiPage() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <svg width="16" height="16" viewBox="0 0 12 12" fill="none"><path d="M6 1L7.5 4.5L11 6L7.5 7.5L6 11L4.5 7.5L1 6L4.5 4.5L6 1Z" fill="#16A34A"/></svg>
-            <h1 style={{ fontSize: 18, fontWeight: 600, color: '#0D0D0D', margin: 0, letterSpacing: '-0.01em' }}>Halo AI</h1>
+            <h1 style={{ fontSize: 18, fontWeight: 600, color: '#0D0D0D', margin: 0, letterSpacing: '-0.01em' }}>Aira AI</h1>
             <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 4, background: cfg.enabled ? '#F0FDF4' : '#F7F7F7', color: cfg.enabled ? '#16A34A' : '#6B7280', border: `1px solid ${cfg.enabled ? '#BBF7D0' : '#E5E5E5'}`, fontWeight: 500 }}>
               {cfg.enabled ? 'Auto-reply ON' : 'Auto-reply OFF'}
             </span>
@@ -197,7 +197,7 @@ export default function HaloAiPage() {
             <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
               <div style={{ flex: 1 }}>
                 <label style={labelStyle}>Nama Persona</label>
-                <input value={cfg.persona_name} onChange={e => update('persona_name', e.target.value)} placeholder="Halo AI" style={inputStyle} />
+                <input value={cfg.persona_name} onChange={e => update('persona_name', e.target.value)} placeholder="Aira" style={inputStyle} />
               </div>
               <div style={{ flex: 1 }}>
                 <label style={labelStyle}>Role / Posisi</label>
@@ -230,7 +230,7 @@ export default function HaloAiPage() {
               </div>
               {useCustomPrompt && (
                 <textarea value={cfg.system_prompt} onChange={e => update('system_prompt', e.target.value)}
-                  placeholder="Kamu adalah Halo AI, asisten CS Barawell. Selalu balas dalam Bahasa Indonesia yg ramah..."
+                  placeholder="Kamu adalah Aira, asisten CS Barawell. Selalu balas dalam Bahasa Indonesia yg ramah..."
                   style={{ ...textareaStyle, minHeight: 200 }} />
               )}
             </div>

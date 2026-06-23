@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { getNumberAuth, sendText, normalizePhone, type NumberAuth } from '@/lib/wa'
+import { getNumberAuth, sendText, normalizePhone, downloadAndStoreMedia, type NumberAuth } from '@/lib/wa'
 import { generateReply, type AiConfig, type Turn } from '@/lib/ai'
 
 export const dynamic = 'force-dynamic'
@@ -12,7 +12,7 @@ const APP_SECRET   = process.env.META_APP_SECRET || ''
 const STOP_WORDS  = ['STOP', 'BERHENTI', 'UNSUB', 'UNSUBSCRIBE', 'STOP PROMO', 'BERHENTI PROMO']
 const START_WORDS = ['MULAI', 'LANGGANAN', 'START', 'SUBSCRIBE']
 
-// ── GET: verifikasi webhook saat dipasang di Meta ──────────────────────────
+// ── GET: verifikasi webhook ────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams
   if (p.get('hub.mode') === 'subscribe' && p.get('hub.verify_token') === VERIFY_TOKEN) {
@@ -21,7 +21,6 @@ export async function GET(req: NextRequest) {
   return new NextResponse('forbidden', { status: 403 })
 }
 
-// Verifikasi signature X-Hub-Signature-256 (HMAC-SHA256 body pakai App Secret).
 function validSignature(raw: string, sig: string | null): boolean {
   if (!APP_SECRET) return true // dev: skip kalau App Secret belum di-set
   if (!sig) return false
@@ -50,15 +49,13 @@ export async function POST(req: NextRequest) {
         const phoneNumberId: string | undefined = value?.metadata?.phone_number_id
         if (!phoneNumberId) continue
 
-        // ROUTING: phone_number_id → tenant + token
         const auth = await getNumberAuth(phoneNumberId)
-        if (!auth) continue // nomor belum terdaftar di tenant manapun → abaikan
+        if (!auth) continue
 
         const profileName: string | undefined = value?.contacts?.[0]?.profile?.name
         for (const msg of value.messages || []) {
           await handleInbound(auth, phoneNumberId, msg, profileName)
         }
-        // Update status delivered/read/failed utk pesan keluar.
         for (const st of value.statuses || []) {
           await handleStatus(auth, st)
         }
@@ -68,14 +65,12 @@ export async function POST(req: NextRequest) {
     console.error('[closari webhook] error:', e)
   }
 
-  // Meta wajib dapat 200 cepat.
   return NextResponse.json({ ok: true })
 }
 
-// Update status pesan keluar (sent → delivered → read, atau failed).
 async function handleStatus(auth: NumberAuth, st: any) {
   const waId: string | undefined = st?.id
-  const status: string | undefined = st?.status // 'sent'|'delivered'|'read'|'failed'
+  const status: string | undefined = st?.status
   if (!waId || !status) return
   await supabaseAdmin
     .from('wa_messages')
@@ -96,18 +91,42 @@ async function handleInbound(auth: NumberAuth, phoneNumberId: string, msg: any, 
     if (dup) return
   }
 
-  // Ekstrak isi
   const type: string = msg.type || 'text'
+  const isForwarded = !!(msg.context?.forwarded || msg.context?.frequently_forwarded)
+
+  // Ekstrak teks + media
   let bodyText = ''
-  if (type === 'text') bodyText = msg.text?.body || ''
-  else if (type === 'button') bodyText = msg.button?.text || ''
-  else if (type === 'interactive') bodyText = msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || ''
-  else bodyText = `[${type}]`
+  let mediaUrl: string | null = null
+  let mediaMime: string | undefined
+  let mediaFilename: string | undefined
+
+  if (type === 'text') {
+    bodyText = msg.text?.body || ''
+  } else if (type === 'button') {
+    bodyText = msg.button?.text || ''
+  } else if (type === 'interactive') {
+    bodyText = msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || ''
+  } else if (type === 'image' || type === 'document' || type === 'video' || type === 'audio' || type === 'sticker' || type === 'voice') {
+    const node = msg[type] || {}
+    bodyText = node.caption || ''
+    mediaFilename = node.filename
+    if (node.id) {
+      const dl = await downloadAndStoreMedia(auth.accessToken, auth.tenantId, node.id, node.mime_type)
+      mediaUrl = dl.url
+      mediaMime = dl.mime || node.mime_type
+    }
+  } else if (type === 'location') {
+    const loc = msg.location || {}
+    bodyText = `📍 Lokasi: ${loc.name || ''} ${loc.address || ''} (${loc.latitude},${loc.longitude})`.trim()
+  } else if (type === 'contacts') {
+    bodyText = '📇 Kartu kontak'
+  } else {
+    bodyText = `[${type}]`
+  }
 
   const now = new Date().toISOString()
 
-  // Upsert kontak (per tenant). Customer yang balas = otomatis "terkontak"
-  // (hilang dari daftar Perlu Follow Up biar gak dobel di-FU).
+  // Upsert kontak
   const { data: contact } = await supabaseAdmin
     .from('wa_contacts')
     .upsert(
@@ -125,7 +144,7 @@ async function handleInbound(auth: NumberAuth, phoneNumberId: string, msg: any, 
     .maybeSingle()
   const contactId = contact?.id as string | undefined
 
-  // STOP / MULAI (opt-out per tenant)
+  // STOP / MULAI
   const kw = bodyText.trim().toUpperCase().replace(/[.!,\s]+$/g, '')
   if (STOP_WORDS.includes(kw)) {
     await supabaseAdmin.from('wa_contacts')
@@ -158,7 +177,7 @@ async function handleInbound(auth: NumberAuth, phoneNumberId: string, msg: any, 
     conversationId = (nc?.id as string) || null
   }
 
-  // Simpan pesan masuk — FIX: sertakan contact_id (sebelumnya hilang → stats 0)
+  // Simpan pesan masuk (dengan media + flag forwarded)
   await supabaseAdmin.from('wa_messages').insert({
     tenant_id: auth.tenantId,
     conversation_id: conversationId,
@@ -167,15 +186,18 @@ async function handleInbound(auth: NumberAuth, phoneNumberId: string, msg: any, 
     direction: 'in',
     type,
     body: bodyText,
+    media_url: mediaUrl,
+    media_mime: mediaMime,
+    media_filename: mediaFilename,
+    is_forwarded: isForwarded,
     sender: 'contact',
   })
 
-  // AI auto-reply per-tenant — skip kalau pesan ini command opt-out (STOP/MULAI).
+  // AI auto-reply — skip command opt-out & skip kalau cuma media tanpa teks
   const isOptCmd = STOP_WORDS.includes(kw) || START_WORDS.includes(kw)
-  if (!isOptCmd) await maybeAiReply(auth, phoneNumberId, conversationId, contactId, from)
+  if (!isOptCmd && bodyText.trim()) await maybeAiReply(auth, phoneNumberId, conversationId, contactId, from)
 }
 
-// Balas otomatis pakai AI kalau tenant mengaktifkannya di ai_configs.
 async function maybeAiReply(auth: NumberAuth, phoneNumberId: string, conversationId: string | null, contactId: string | undefined, to: string) {
   if (!conversationId) return
 
@@ -183,7 +205,6 @@ async function maybeAiReply(auth: NumberAuth, phoneNumberId: string, conversatio
     .from('ai_configs').select('*').eq('tenant_id', auth.tenantId).maybeSingle()
   if (!cfg?.enabled) return
 
-  // Cooldown: jangan balas kalau AI baru aja balas di percakapan ini.
   const cd = Number(cfg.cooldown_min) || 0
   if (cd > 0) {
     const since = new Date(Date.now() - cd * 60000).toISOString()
@@ -194,7 +215,6 @@ async function maybeAiReply(auth: NumberAuth, phoneNumberId: string, conversatio
     if (recent) return
   }
 
-  // Ambil riwayat percakapan utk konteks (pesan masuk td udah termasuk).
   const { data: hist } = await supabaseAdmin
     .from('wa_messages').select('direction, body')
     .eq('conversation_id', conversationId)
@@ -206,16 +226,17 @@ async function maybeAiReply(auth: NumberAuth, phoneNumberId: string, conversatio
   const reply = await generateReply(cfg as AiConfig, turns)
   if (!reply) return
 
-  const ok = await sendText(phoneNumberId, auth.accessToken, to, reply)
+  const r = await sendText(phoneNumberId, auth.accessToken, to, reply)
   await supabaseAdmin.from('wa_messages').insert({
     tenant_id: auth.tenantId,
     conversation_id: conversationId,
     contact_id: contactId,
+    wa_message_id: r.waMessageId,
     direction: 'out',
     type: 'text',
     body: reply,
     sender: 'ai',
-    status: ok ? 'sent' : 'failed',
+    status: r.ok ? 'sent' : 'failed',
   })
   await supabaseAdmin.from('wa_conversations')
     .update({ last_message_at: new Date().toISOString() }).eq('id', conversationId)

@@ -2,12 +2,12 @@ import Link from 'next/link'
 import LiveDemo from './LiveDemo'
 
 const features = [
-  { tag: 'Shared Inbox', headline: 'Satu inbox untuk seluruh tim.', desc: 'Semua nomor, semua agen, satu tampilan terpadu. Tidak ada pesan terlewat, tidak ada dobel balas.' },
-  { tag: 'AI Copilot', headline: 'Saran balasan real-time, kendali tetap di kamu.', desc: 'Copilot baca konteks percakapan dan sarankan respons terbaik — bukan auto-reply yang bikin pelanggan frustrasi.' },
-  { tag: 'Broadcast', headline: 'Kirim massal tanpa khawatir kena banned.', desc: 'Filter kontak aktif, opt-out otomatis, dan rate yang aman untuk quality rating nomor kamu.' },
+  { tag: 'Shared Inbox', headline: 'Satu inbox untuk seluruh tim.', desc: 'Semua nomor, semua agen, satu tampilan terpadu — realtime. Tidak ada pesan terlewat, tidak ada dobel balas.' },
+  { tag: 'Aira AI', headline: 'AI yang balas otomatis & sarankan respons.', desc: 'Aira baca konteks percakapan, balas customer otomatis 24 jam, dan kasih saran balasan ke agen. Kontrol tetap di tangan kamu.' },
+  { tag: 'Foto & Dokumen', headline: 'Kirim & terima foto, invoice, dokumen.', desc: 'Terima foto/forward dari customer dan balas dengan invoice, katalog, atau dokumen apa pun — langsung dari inbox.' },
+  { tag: 'Broadcast', headline: 'Kirim massal tanpa khawatir kena banned.', desc: 'Filter kontak aktif, opt-out otomatis, cooldown 30 hari per kontak, dan rate aman untuk jaga quality rating nomor.' },
+  { tag: 'Follow Up', headline: 'Tidak ada customer yang terlupakan.', desc: 'Status "Terkontak" otomatis, klasifikasi customer (loyal/baru/prospek), dan catatan aktivitas follow-up harian.' },
   { tag: 'Multi-nomor', headline: 'Banyak nomor, satu dashboard.', desc: 'Connect banyak nomor WA Business resmi lewat Embedded Signup dalam hitungan menit.' },
-  { tag: 'Knowledge Base', headline: 'AI yang tahu produk kamu.', desc: 'Feed informasi produk ke AI — jawaban makin relevan, eskalasi ke manusia makin jarang.' },
-  { tag: 'Compliance', headline: 'Dibangun untuk jaga nomor tetap sehat.', desc: 'Cooldown, engaged-only filter, dan audit trail built-in dari hari pertama.' },
 ]
 
 export default function Landing() {
@@ -59,7 +59,7 @@ export default function Landing() {
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#16A34A', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>Live Demo</div>
             <h2 style={{ fontSize: 32, fontWeight: 700, letterSpacing: '-0.03em', color: '#0D0D0D', marginBottom: 10 }}>Coba sendiri, sekarang.</h2>
-            <p style={{ fontSize: 14, color: '#6B7280' }}>Kirim pesan ke inbox demo di bawah ini dan lihat AI Copilot bekerja.</p>
+            <p style={{ fontSize: 14, color: '#6B7280' }}>Kirim pesan ke inbox demo di bawah dan lihat Aira AI baca konteks & sarankan balasan terbaik.</p>
           </div>
           <LiveDemo />
         </div>
@@ -92,7 +92,7 @@ export default function Landing() {
               {[
                 { n: '1', label: 'Connect nomor', desc: 'Hubungkan nomor WA Business resmi lewat Embedded Signup.' },
                 { n: '2', label: 'Invite tim', desc: 'Tambah agen CS. Semua langsung bisa akses shared inbox.' },
-                { n: '3', label: 'Aktifkan Copilot', desc: 'Set persona & instruksi AI. Langsung aktif di setiap percakapan.' },
+                { n: '3', label: 'Aktifkan Aira AI', desc: 'Set persona & instruksi AI. Aira langsung balas otomatis & bantu agen di setiap percakapan.' },
               ].map((s, i) => (
                 <div key={s.n} style={{ display: 'flex', gap: 16, marginBottom: i < 2 ? 24 : 0 }}>
                   <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, marginTop: 1, background: '#0D0D0D', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600 }}>{s.n}</div>

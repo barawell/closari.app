@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     config: data || {
       tenant_id: actor.tenantId,
       enabled: false,
-      persona_name: 'Halo AI',
+      persona_name: 'Aira',
       persona_role: null,
       system_prompt: null,
       business_info: null,
@@ -42,7 +42,7 @@ export async function PUT(req: Request) {
   const patch: any = {
     tenant_id: actor.tenantId,
     enabled: !!b.enabled,
-    persona_name: b.persona_name || 'Halo AI',
+    persona_name: b.persona_name || 'Aira',
     persona_role: b.persona_role || null,
     system_prompt: b.system_prompt || null,
     business_info: b.business_info || null,

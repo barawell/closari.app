@@ -30,7 +30,7 @@ export function buildSystemPrompt(cfg: HaloAiConfig & Record<string, any>, conte
   }
 
   // Build dari template terstruktur
-  const persona = cfg.persona_name || 'Halo AI'
+  const persona = cfg.persona_name || 'Aira'
   const role = cfg.persona_role || 'asisten customer service'
 
   let prompt = `Kamu adalah ${persona}, ${role} via WhatsApp.

@@ -31,7 +31,7 @@ function playNotifSound() {
 }
 
 type Conv = { id: string; status: string; last_message_at: string; tags?: string[]; contact: any }
-type Msg = { id: string; direction: string; body: string; sender: string; created_at: string; status?: string }
+type Msg = { id: string; direction: string; body: string; sender: string; created_at: string; status?: string; type?: string; media_url?: string | null; media_mime?: string | null; media_filename?: string | null; is_forwarded?: boolean }
 type ContactDetail = { contact: any; stats: { total_messages_in: number; total_messages_out: number; total_conversations: number; days_since_first_contact: number | null; days_since_last_order: number | null } }
 type QuickReply = { id: string; shortcut: string; title: string; body: string }
 
@@ -61,6 +61,36 @@ function StatusIcon({ status }: { status?: string }) {
   return null
 }
 
+// Render media (foto / video / audio / dokumen) di dalam bubble.
+function MediaBubble({ m, light }: { m: Msg; light: boolean }) {
+  const mime = m.media_mime || ''
+  const url = m.media_url || ''
+  if (!url) {
+    return <div style={{ fontSize: 12, fontStyle: 'italic', opacity: 0.7 }}>📎 {m.media_filename || m.type || 'lampiran'} (gagal dimuat)</div>
+  }
+  if (mime.startsWith('image/') || m.type === 'image' || m.type === 'sticker') {
+    return <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="" style={{ maxWidth: 240, maxHeight: 280, borderRadius: 8, display: 'block', objectFit: 'cover' }} /></a>
+  }
+  if (mime.startsWith('video/') || m.type === 'video') {
+    return <video src={url} controls style={{ maxWidth: 260, borderRadius: 8, display: 'block' }} />
+  }
+  if (mime.startsWith('audio/') || m.type === 'audio' || m.type === 'voice') {
+    return <audio src={url} controls style={{ maxWidth: 240 }} />
+  }
+  // dokumen
+  return (
+    <a href={url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: light ? '#fff' : '#0D0D0D', padding: '4px 0' }}>
+      <div style={{ width: 34, height: 34, borderRadius: 7, background: light ? 'rgba(255,255,255,0.18)' : '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 1.5h5L12.5 5v9.5H4V1.5Z" stroke={light ? '#fff' : '#16A34A'} strokeWidth="1.3" strokeLinejoin="round"/><path d="M9 1.5V5h3.5" stroke={light ? '#fff' : '#16A34A'} strokeWidth="1.3" strokeLinejoin="round"/></svg>
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{m.media_filename || 'Dokumen'}</div>
+        <div style={{ fontSize: 10, opacity: 0.7 }}>Ketuk untuk buka</div>
+      </div>
+    </a>
+  )
+}
+
 export default function InboxPage() {
   const [convs, setConvs] = useState<Conv[]>([])
   const [active, setActive] = useState<Conv | null>(null)
@@ -79,6 +109,8 @@ export default function InboxPage() {
   const [rightTab, setRightTab] = useState<'contact' | 'copilot'>('contact')
   const [search, setSearch] = useState('')
   const [soundOn, setSoundOn] = useState(true)
+  const [sendingMedia, setSendingMedia] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const endRef = useRef<HTMLDivElement>(null)
   const activeRef = useRef<Conv | null>(null)
@@ -237,6 +269,23 @@ export default function InboxPage() {
     if (res.ok) loadContactDetail(contactDetail.contact.id)
   }
 
+  async function sendMedia(file: File) {
+    if (!active) return
+    setSendingMedia(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('conversation_id', active.id)
+      const res = await authFetch('/api/inbox/media', { method: 'POST', body: fd })
+      const j = await res.json()
+      if (!res.ok) alert(j.error || 'Gagal kirim file')
+      else loadMsgs(active.id)
+    } finally {
+      setSendingMedia(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   function handleTextChange(v: string) {
     setText(v)
     // Toggle quick reply picker kalau text dimulai "/"
@@ -356,7 +405,18 @@ export default function InboxPage() {
                       {m.sender === 'ai' && (
                         <div style={{ fontSize: 10, fontWeight: 600, color: '#16A34A', marginBottom: 3, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 4 }}>
                           <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M6 1L7.5 4.5L11 6L7.5 7.5L6 11L4.5 7.5L1 6L4.5 4.5L6 1Z" fill="#16A34A"/></svg>
-                          HALO AI
+                          AIRA AI
+                        </div>
+                      )}
+                      {m.is_forwarded && (
+                        <div style={{ fontSize: 10, fontStyle: 'italic', opacity: 0.6, marginBottom: 3, display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6h6M6 3l3 3-3 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          Diteruskan
+                        </div>
+                      )}
+                      {(m.media_url || (m.type && m.type !== 'text' && m.type !== 'button' && m.type !== 'interactive')) && (
+                        <div style={{ marginBottom: m.body ? 6 : 0 }}>
+                          <MediaBubble m={m} light={m.direction === 'out' && m.sender !== 'ai'} />
                         </div>
                       )}
                       {m.body}
@@ -391,6 +451,14 @@ export default function InboxPage() {
             )}
 
             <div style={{ padding: '10px 14px', background: '#fff', borderTop: '1px solid #E5E5E5', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+              <input ref={fileInputRef} type="file" accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) sendMedia(f) }} />
+              <button onClick={() => fileInputRef.current?.click()} disabled={sendingMedia} title="Kirim foto / dokumen"
+                style={{ padding: '9px 10px', borderRadius: 7, background: '#F7F7F7', border: '1px solid #E5E5E5', cursor: sendingMedia ? 'wait' : 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', color: '#6B7280' }}>
+                {sendingMedia
+                  ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#D4D4D4" strokeWidth="2"/><path d="M8 2a6 6 0 016 6" stroke="#16A34A" strokeWidth="2" strokeLinecap="round"><animateTransform attributeName="transform" type="rotate" from="0 8 8" to="360 8 8" dur="0.7s" repeatCount="indefinite"/></path></svg>
+                  : <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M14 7.5l-6 6a3.5 3.5 0 01-5-5l6.5-6.5a2.3 2.3 0 013.3 3.3L6.5 11.5a1.1 1.1 0 01-1.6-1.6L11 3.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+              </button>
               <textarea
                 value={text} onChange={e => handleTextChange(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } if (e.key === 'Escape') setShowQR(false) }}

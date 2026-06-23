@@ -13,7 +13,7 @@ export async function GET(req: Request) {
 
   const { data } = await supabaseAdmin
     .from('wa_messages')
-    .select('id, direction, type, body, media_url, sender, status, created_at')
+    .select('id, direction, type, body, media_url, media_mime, media_filename, is_forwarded, sender, status, created_at')
     .eq('tenant_id', actor.tenantId)
     .eq('conversation_id', id)
     .order('created_at', { ascending: true })

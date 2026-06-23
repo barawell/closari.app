@@ -11,7 +11,7 @@ const NAV = [
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 3.5h11M2 7.5h11M2 11.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
   },
   {
-    href: '/halo-ai', label: 'Halo AI',
+    href: '/halo-ai', label: 'Aira AI',
     icon: <svg width="15" height="15" viewBox="0 0 12 12" fill="none"><path d="M6 1L7.5 4.5L11 6L7.5 7.5L6 11L4.5 7.5L1 6L4.5 4.5L6 1Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>,
   },
   {
