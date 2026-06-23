@@ -10,7 +10,7 @@ export async function GET(req: Request) {
 
   const { data } = await supabaseAdmin
     .from('wa_conversations')
-    .select('id, status, last_message_at, contact:wa_contacts(id, phone, name, opted_out)')
+    .select('id, status, last_message_at, tags, contact:wa_contacts(id, phone, name, opted_out, tags, last_order_at)')
     .eq('tenant_id', actor.tenantId)
     .order('last_message_at', { ascending: false })
     .limit(100)

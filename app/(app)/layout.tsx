@@ -11,15 +11,20 @@ const NAV = [
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 3.5h11M2 7.5h11M2 11.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
   },
   {
+    href: '/halo-ai', label: 'Halo AI',
+    icon: <svg width="15" height="15" viewBox="0 0 12 12" fill="none"><path d="M6 1L7.5 4.5L11 6L7.5 7.5L6 11L4.5 7.5L1 6L4.5 4.5L6 1Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>,
+    accent: true,
+  },
+  {
     href: '/broadcast', label: 'Broadcast',
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5C2 7.5 4 4 7.5 4C11 4 13 7.5 13 7.5C13 7.5 11 11 7.5 11C4 11 2 7.5 2 7.5Z" stroke="currentColor" strokeWidth="1.4"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>,
   },
   {
-    href: '/numbers', label: 'Nomor',
+    href: '/numbers', label: 'Nomor WhatsApp',
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="3" y="1" width="9" height="13" rx="2" stroke="currentColor" strokeWidth="1.4"/><circle cx="7.5" cy="11" r="1" fill="currentColor"/></svg>,
   },
   {
-    href: '/settings', label: 'AI & Setelan',
+    href: '/settings', label: 'Setelan',
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" strokeWidth="1.4"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M3.2 3.2l1.1 1.1M10.7 10.7l1.1 1.1M10.7 3.2l-1.1 1.1M3.2 10.7l1.1 1.1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
   },
 ]

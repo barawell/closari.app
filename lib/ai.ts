@@ -1,11 +1,11 @@
 // lib/ai.ts — AI auto-reply per-tenant via Anthropic (Claude).
-// Tiap tenant punya persona + system_prompt sendiri (tabel ai_configs).
+// v6: pakai buildSystemPrompt() yang merangkai knowledge base.
+import { buildSystemPrompt, type HaloAiConfig } from './halo-ai'
+
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 
-export type AiConfig = {
+export type AiConfig = HaloAiConfig & {
   enabled?: boolean | null
-  persona_name?: string | null
-  system_prompt?: string | null
   model?: string | null
   cooldown_min?: number | null
 }
@@ -27,18 +27,18 @@ function normalize(turns: Turn[]): Turn[] {
   return out
 }
 
-export async function generateReply(config: AiConfig, turns: Turn[]): Promise<string | null> {
+export async function generateReply(
+  config: AiConfig,
+  turns: Turn[],
+  context?: { customer_name?: string; is_returning?: boolean; last_order_days_ago?: number }
+): Promise<string | null> {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) return null
 
   const messages = normalize(turns)
   if (!messages.length || messages[messages.length - 1].role !== 'user') return null
 
-  const system =
-    (config.system_prompt && config.system_prompt.trim()) ||
-    `Kamu ${config.persona_name || 'asisten customer service'} yang membantu pelanggan via WhatsApp. ` +
-      `Jawab singkat, ramah, jelas, dalam Bahasa Indonesia. Jangan mengarang info yang tidak kamu ketahui; ` +
-      `kalau di luar kemampuanmu, arahkan dengan sopan ke admin manusia.`
+  const system = buildSystemPrompt(config, context)
 
   try {
     const res = await fetch(ANTHROPIC_URL, {
