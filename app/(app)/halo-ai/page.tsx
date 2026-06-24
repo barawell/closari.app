@@ -69,7 +69,14 @@ export default function HaloAiPage() {
     try {
       const payload = { ...cfg, system_prompt: useCustomPrompt ? cfg.system_prompt : '' }
       const res = await authFetch('/api/halo-ai/config', { method: 'PUT', body: JSON.stringify(payload) })
-      if (res.ok) setSavedAt(Date.now())
+      const j = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setSavedAt(Date.now())
+      } else {
+        alert('Gagal menyimpan: ' + (j.error || ('HTTP ' + res.status)) + '\n\nKalau errornya soal "on conflict"/"unique", jalankan SQL fix dulu di Supabase.')
+      }
+    } catch (e: any) {
+      alert('Gagal menyimpan: ' + (e?.message || 'error jaringan'))
     } finally { setSaving(false) }
   }
 
