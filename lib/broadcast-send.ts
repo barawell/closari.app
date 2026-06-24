@@ -106,7 +106,7 @@ export async function runCampaign(opts: {
     const ok = r.ok
     if (ok) sent++; else failed++
 
-    rows.push({ campaign_id: campaignId, tenant_id: tenantId, contact_id: c.id || null, phone: c.phone, status: ok ? 'sent' : 'failed' })
+    rows.push({ campaign_id: campaignId, tenant_id: tenantId, contact_id: c.id || null, phone: c.phone, status: ok ? 'sent' : 'failed', wa_message_id: r.waMessageId || null })
 
     if (ok && c.phone) {
       await supabaseAdmin.from('wa_contacts')

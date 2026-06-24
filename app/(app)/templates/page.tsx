@@ -39,6 +39,8 @@ export default function TemplatesPage() {
   const [buttons, setButtons] = useState<Btn[]>([])
   const [busy, setBusy] = useState(false)
   const [okMsg, setOkMsg] = useState('')
+  const [syncing, setSyncing] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   useEffect(() => { loadList() }, [])
 
@@ -59,6 +61,18 @@ export default function TemplatesPage() {
     const j = await res.json()
     setTemplates(j.templates || [])
     setLoading(false)
+  }
+
+  async function syncFromMeta() {
+    setSyncing(true)
+    try {
+      const res = await authFetch('/api/templates/sync', { method: 'POST' })
+      const j = await res.json()
+      if (res.ok) {
+        setOkMsg(`Sync selesai — ${j.synced} template diperbarui dari Meta.`)
+        await loadList()
+      } else { alert(j.error || 'Gagal sync') }
+    } finally { setSyncing(false) }
   }
 
   function addButton(type: Btn['type']) {
@@ -117,6 +131,9 @@ export default function TemplatesPage() {
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: '#0D0D0D', letterSpacing: '-0.02em', marginBottom: 3 }}>Template WhatsApp</h1>
         <p style={{ fontSize: 13, color: '#6B7280' }}>Ajukan template langsung dari sini — tanpa buka Meta Business Manager. Meta review otomatis.</p>
+        <button onClick={syncFromMeta} disabled={syncing} style={{ marginTop: 8, padding: '6px 14px', fontSize: 12, fontWeight: 500, background: '#fff', color: syncing ? '#9CA3AF' : '#374151', border: '1px solid #E5E5E5', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit' }}>
+          {syncing ? '↻ Sync…' : '↻ Sync status dari Meta'}
+        </button>
       </div>
 
       {/* Tabs */}
@@ -257,7 +274,12 @@ export default function TemplatesPage() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F0F0F0', paddingTop: 16 }}>
-            <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Setelah diajukan, status PENDING → APPROVED/REJECTED dari Meta.</p>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Status: PENDING → APPROVED/REJECTED dari Meta.</p>
+              <button type="button" onClick={() => setShowPreview(v => !v)} style={{ padding: '6px 12px', fontSize: 12, borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', background: showPreview ? '#F0FDF4' : '#fff', color: showPreview ? '#15803D' : '#374151', border: '1px solid #E5E5E5', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                {showPreview ? '✕ Tutup' : '👁 Preview WA'}
+              </button>
+            </div>
             <button onClick={submit} disabled={!canSubmit}
               style={{ padding: '9px 20px', background: !canSubmit ? '#F0F0F0' : '#0D0D0D', color: !canSubmit ? '#9CA3AF' : '#fff', border: 'none', borderRadius: 7, fontWeight: 500, fontSize: 13, cursor: !canSubmit ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
               {busy ? 'Mengajukan…' : 'Ajukan ke Meta'}
@@ -265,6 +287,36 @@ export default function TemplatesPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function WaPreview({ header, body, footer, buttons, examples }: { header: string; body: string; footer: string; buttons: any[]; examples: string[] }) {
+  const rendered = body.replace(/\{\{(\d+)\}\}/g, (_: string, n: string) => examples[parseInt(n) - 1] || `{{${n}}}`)
+  return (
+    <div style={{ marginTop: 20, background: '#E5DDD5', borderRadius: 12, padding: 20 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Preview — tampilan di WhatsApp</div>
+      <div style={{ maxWidth: 300 }}>
+        <div style={{ background: '#fff', borderRadius: '0 10px 10px 10px', padding: '10px 12px', boxShadow: '0 1px 2px rgba(0,0,0,0.12)' }}>
+          {header && <div style={{ fontSize: 14, fontWeight: 700, color: '#0D0D0D', marginBottom: 6 }}>{header}</div>}
+          <div style={{ fontSize: 13, color: '#111', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {rendered || <span style={{ color: '#9CA3AF' }}>Isi body dulu…</span>}
+          </div>
+          {footer && <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>{footer}</div>}
+          <div style={{ fontSize: 10, color: '#9CA3AF', textAlign: 'right', marginTop: 4 }}>
+            {new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} ✓✓
+          </div>
+        </div>
+        {buttons.filter(b => b.text).length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
+            {buttons.filter(b => b.text).map((b, i) => (
+              <div key={i} style={{ background: '#fff', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#0A97AE', fontWeight: 500, textAlign: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
+                {b.type === 'URL' ? '🔗 ' : b.type === 'PHONE_NUMBER' ? '📞 ' : '↩ '}{b.text}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -46,6 +46,20 @@ export async function POST(req: NextRequest) {
   try { body = JSON.parse(raw) } catch { return NextResponse.json({ ok: true }) }
 
   try {
+    // Health monitor: catat waktu webhook terakhir
+    const allPhoneIds: string[] = []
+    for (const entry of body.entry || []) {
+      for (const ch of (entry as any).changes || []) {
+        const pid = ch?.value?.metadata?.phone_number_id
+        if (pid && !allPhoneIds.includes(pid)) allPhoneIds.push(pid)
+      }
+    }
+    if (allPhoneIds.length) {
+      await supabaseAdmin.from('wa_numbers')
+        .update({ last_webhook_at: new Date().toISOString() })
+        .in('phone_number_id', allPhoneIds)
+    }
+
     for (const entry of body.entry || []) {
       for (const change of entry.changes || []) {
         const value = change.value || {}
@@ -69,6 +83,10 @@ export async function POST(req: NextRequest) {
         for (const st of value.statuses || []) {
           await handleStatus(auth, st)
         }
+        // Template status update dari Meta
+        if (change.field === 'message_template_status_update') {
+          await handleTemplateStatus(auth.tenantId, value)
+        }
       }
     }
   } catch (e) {
@@ -82,11 +100,46 @@ async function handleStatus(auth: NumberAuth, st: any) {
   const waId: string | undefined = st?.id
   const status: string | undefined = st?.status
   if (!waId || !status) return
+
+  // Update status di wa_messages
   await supabaseAdmin
     .from('wa_messages')
     .update({ status })
     .eq('tenant_id', auth.tenantId)
     .eq('wa_message_id', waId)
+
+  // Delivery tracking di broadcast_recipients
+  if (status === 'delivered') {
+    await supabaseAdmin.from('broadcast_recipients')
+      .update({ status: 'delivered', delivered_at: new Date().toISOString() })
+      .eq('wa_message_id', waId).eq('tenant_id', auth.tenantId)
+  } else if (status === 'read') {
+    await supabaseAdmin.from('broadcast_recipients')
+      .update({ status: 'read', read_at: new Date().toISOString() })
+      .eq('wa_message_id', waId).eq('tenant_id', auth.tenantId)
+  }
+}
+
+// Handle Meta template status push (APPROVED/REJECTED/DISABLED)
+async function handleTemplateStatus(tenantId: string, value: any) {
+  const name: string | undefined = value?.message_template_name
+  const language: string = value?.message_template_language || 'id'
+  const status: string | undefined = value?.event
+  const reason: string | null = value?.reason || null
+  const templateId = String(value?.message_template_id || '')
+  if (!name || !status) return
+
+  await supabaseAdmin.from('wa_templates').upsert({
+    tenant_id: tenantId,
+    name,
+    language,
+    template_id: templateId,
+    status,
+    rejection_reason: reason,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'tenant_id,name,language' })
+
+  console.log(`[closari] template status: ${name} (${language}) → ${status}`)
 }
 
 async function handleInbound(auth: NumberAuth, phoneNumberId: string, msg: any, profileName?: string) {

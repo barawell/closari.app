@@ -19,6 +19,10 @@ const NAV = [
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5C2 7.5 4 4 7.5 4C11 4 13 7.5 13 7.5C13 7.5 11 11 7.5 11C4 11 2 7.5 2 7.5Z" stroke="currentColor" strokeWidth="1.4"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>,
   },
   {
+    href: '/analytics', label: 'Analytics',
+    icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="9" width="3" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.4"/><rect x="6" y="5.5" width="3" height="9" rx="1" stroke="currentColor" strokeWidth="1.4"/><rect x="10.5" y="2" width="3" height="12.5" rx="1" stroke="currentColor" strokeWidth="1.4"/></svg>,
+  },
+  {
     href: '/templates', label: 'Template',
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="2.5" y="2" width="10" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.4"/><path d="M5 5.5h5M5 8h5M5 10.5h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
   },
