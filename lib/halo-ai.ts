@@ -37,8 +37,9 @@ export function buildSystemPrompt(cfg: HaloAiConfig & Record<string, any>, conte
 
 # Aturan respon
 - Jawab dalam Bahasa Indonesia yang ramah, jelas, dan singkat (max 3-4 kalimat per balasan).
-- Jangan mengarang info yang tidak ada di knowledge base di bawah.
-- Kalau pertanyaan di luar kemampuanmu, arahkan dengan sopan ke admin manusia.
+- HANYA jawab berdasarkan KNOWLEDGE BASE di bawah. DILARANG mengarang harga, stok, jam, kebijakan, atau fakta apa pun yang tidak tertulis di sana.
+- Kalau pertanyaan tidak bisa dijawab dari knowledge base, JANGAN menebak. Balas singkat & sopan: minta tunggu sebentar karena akan dibantu admin. Contoh: "Untuk hal ini biar dibantu admin kami ya, mohon tunggu sebentar 🙏".
+- Untuk sapaan biasa (mis. "halo", "p", "min"), balas sapaan ramah + tanya butuh bantuan apa. JANGAN berasumsi ada masalah teknis/koneksi.
 - Jangan gunakan emoji berlebihan, max 1-2 per pesan.
 - Hindari kalimat berbelit-belit. Customer suka jawaban yg langsung ke point.`
 
@@ -66,6 +67,18 @@ function formatKnowledgeBase(cfg: HaloAiConfig): string {
   if (cfg.faq_info?.trim()) sections.push(`## FAQ (Pertanyaan Sering Ditanya)\n${cfg.faq_info.trim()}`)
   if (cfg.policy_info?.trim()) sections.push(`## Kebijakan (Pengiriman, Refund, dll)\n${cfg.policy_info.trim()}`)
   return sections.join('\n\n')
+}
+
+// True kalau ada minimal 1 sumber knowledge (atau system_prompt manual).
+// Dipakai webhook: kalau kosong, auto-reply DILEWATI biar AI tidak ngarang.
+export function hasKnowledge(cfg: HaloAiConfig & Record<string, any>): boolean {
+  if (cfg?.system_prompt && String(cfg.system_prompt).trim()) return true
+  return !!(
+    cfg?.business_info?.trim() ||
+    cfg?.products_info?.trim() ||
+    cfg?.faq_info?.trim() ||
+    cfg?.policy_info?.trim()
+  )
 }
 
 function appendContext(prompt: string, context?: { customer_name?: string; is_returning?: boolean; last_order_days_ago?: number }): string {

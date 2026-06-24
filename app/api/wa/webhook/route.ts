@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getNumberAuth, sendText, normalizePhone, downloadAndStoreMedia, type NumberAuth } from '@/lib/wa'
 import { generateReply, type AiConfig, type Turn } from '@/lib/ai'
+import { hasKnowledge } from '@/lib/halo-ai'
 
 export const dynamic = 'force-dynamic'
 
@@ -213,6 +214,12 @@ async function maybeAiReply(auth: NumberAuth, phoneNumberId: string, conversatio
   const { data: cfg } = await supabaseAdmin
     .from('ai_configs').select('*').eq('tenant_id', auth.tenantId).maybeSingle()
   if (!cfg?.enabled) return
+  // PENGAMAN: walau auto-reply ON, kalau knowledge base masih kosong, JANGAN balas
+  // (mencegah AI mengarang). Isi knowledge dulu di menu Aira AI.
+  if (!hasKnowledge(cfg as any)) {
+    console.log('[closari ai] skip: knowledge base kosong, tenant', auth.tenantId)
+    return
+  }
 
   const cd = Number(cfg.cooldown_min) || 0
   if (cd > 0) {
