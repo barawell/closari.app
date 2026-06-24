@@ -130,6 +130,11 @@ async function handleInbound(auth: NumberAuth, phoneNumberId: string, msg: any, 
     bodyText = `📍 Lokasi: ${loc.name || ''} ${loc.address || ''} (${loc.latitude},${loc.longitude})`.trim()
   } else if (type === 'contacts') {
     bodyText = '📇 Kartu kontak'
+  } else if (type === 'reaction') {
+    // Emoji reaction customer ke pesan — skip, jangan simpan sebagai pesan baru
+    return
+  } else if (type === 'unsupported' || type === 'order' || type === 'system') {
+    return
   } else {
     bodyText = `[${type}]`
   }
