@@ -199,7 +199,14 @@ export default function InboxPage() {
             playNotifSound()
           }
           if (activeRef.current?.id === convId) {
-            setMsgs(prev => { if (prev.find(m => m.id === newMsg.id)) return prev; return [...prev, newMsg] })
+            setMsgs(prev => {
+              if (prev.find(m => m.id === newMsg.id)) return prev
+              // Ganti bubble optimistic (opt-) dgn pesan asli dari DB biar tidak dobel
+              // & status (centang) bisa update. Cocokkan arah + isi.
+              const idx = prev.findIndex(m => typeof m.id === 'string' && m.id.startsWith('opt-') && m.direction === newMsg.direction && (m.body || '') === (newMsg.body || ''))
+              if (idx !== -1) { const c = [...prev]; c[idx] = newMsg; return c }
+              return [...prev, newMsg]
+            })
             setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
           } else {
             setUnread(prev => ({ ...prev, [convId]: (prev[convId] || 0) + 1 }))

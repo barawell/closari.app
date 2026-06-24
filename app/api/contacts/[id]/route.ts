@@ -58,6 +58,10 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
   if (Array.isArray(b.tags)) patch.tags = b.tags.filter((t: any) => typeof t === 'string').slice(0, 20)
   if (typeof b.name === 'string') patch.name = b.name.trim() || null
   if (b.mark_order) patch.last_order_at = new Date().toISOString()
+  if (typeof b.opted_out === 'boolean') {
+    patch.opted_out = b.opted_out
+    patch.opted_out_at = b.opted_out ? new Date().toISOString() : null
+  }
 
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: 'nothing to update' }, { status: 400 })
 
