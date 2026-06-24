@@ -5,7 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { runCampaign } from '@/lib/broadcast-send'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 300
 
 const APPROVER_ROLES = ['admin', 'owner']
 

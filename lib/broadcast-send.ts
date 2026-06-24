@@ -97,27 +97,50 @@ export async function runCampaign(opts: {
   const isTemplate = camp.kind === 'template' && !!camp.template_name
   let sent = 0, failed = 0
   const nowIso = new Date().toISOString()
-  const rows: any[] = []
 
-  for (const c of recipients) {
+  // Batas aman waktu eksekusi: stop sebelum Vercel timeout, sisanya bisa di-resume
+  const startedAt = Date.now()
+  const MAX_RUN_MS = 250000 // 250 detik (di bawah maxDuration 300)
+  let lastErr: string | null = null
+
+  for (let i = 0; i < recipients.length; i++) {
+    // Kalau mendekati batas waktu, berhenti & tandai partial (bukan stuck)
+    if (Date.now() - startedAt > MAX_RUN_MS) {
+      await supabaseAdmin.from('broadcast_campaigns')
+        .update({ sent, failed, status: 'partial' }).eq('id', campaignId)
+      return { total: recipients.length, sent, failed }
+    }
+
+    const c = recipients[i]
     const r = isTemplate
       ? await sendTemplate(phoneNumberId, accessToken, c.phone, camp.template_name as string, camp.language as string)
       : await sendText(phoneNumberId, accessToken, c.phone, camp.body as string)
     const ok = r.ok
-    if (ok) sent++; else failed++
+    if (ok) sent++; else { failed++; lastErr = r.error || lastErr }
 
-    rows.push({ campaign_id: campaignId, tenant_id: tenantId, contact_id: c.id || null, phone: c.phone, status: ok ? 'sent' : 'failed', wa_message_id: r.waMessageId || null })
+    // Insert per-recipient langsung (biar gak hilang kalau function ke-kill)
+    await supabaseAdmin.from('broadcast_recipients').insert({
+      campaign_id: campaignId, tenant_id: tenantId, contact_id: c.id || null,
+      phone: c.phone, status: ok ? 'sent' : 'failed', wa_message_id: r.waMessageId || null,
+      error: ok ? null : (r.error || null),
+    })
 
     if (ok && c.phone) {
       await supabaseAdmin.from('wa_contacts')
         .update({ last_broadcast_at: nowIso }).eq('tenant_id', tenantId).eq('phone', c.phone)
     }
+
+    // Update progress tiap 10 pesan (biar status gak nyangkut kalau timeout)
+    if (i % 10 === 0) {
+      await supabaseAdmin.from('broadcast_campaigns')
+        .update({ sent, failed }).eq('id', campaignId)
+    }
+
     await sleep(SEND_DELAY_MS)
   }
 
-  if (rows.length) await supabaseAdmin.from('broadcast_recipients').insert(rows)
   await supabaseAdmin.from('broadcast_campaigns')
-    .update({ sent, failed, status: 'done' }).eq('id', campaignId)
+    .update({ sent, failed, status: 'done', last_error: lastErr }).eq('id', campaignId)
 
   return { total: recipients.length, sent, failed }
 }
