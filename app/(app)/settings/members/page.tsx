@@ -43,7 +43,7 @@ export default function MembersPage() {
       const j = await res.json()
       if (!res.ok) { alert(j.error || 'Gagal'); return }
       setEmail(''); load()
-      alert('Undangan dibuat. Orang ini otomatis gabung saat login dengan email tsb.')
+      alert(`Email undangan dikirim ke ${email}. Mereka akan dapat link untuk set password & langsung masuk ke workspace.`)
     } finally { setBusy(false) }
   }
 
@@ -122,7 +122,7 @@ export default function MembersPage() {
                   <div key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: i < invites.length - 1 ? '1px solid #F7F7F7' : 'none' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, color: '#0D0D0D' }}>{inv.email}</div>
-                      <div style={{ fontSize: 11, color: '#B45309' }}>Menunggu login pertama · role {inv.role}</div>
+                      <div style={{ fontSize: 11, color: '#B45309' }}>Email dikirim · menunggu diterima · role {inv.role}</div>
                     </div>
                     {canManage && <button onClick={() => cancelInvite(inv)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', fontSize: 12, fontFamily: 'inherit' }}>Batalkan</button>}
                   </div>
