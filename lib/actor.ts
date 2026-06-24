@@ -3,7 +3,9 @@ import { supabaseAdmin } from './supabase-admin'
 
 export type Actor = { userId: string; tenantId: string | null; role: string | null }
 
-// Validasi Bearer token (JWT Supabase) → user → tenant. Dipakai semua API route.
+// Validasi Bearer token (JWT Supabase) → user → tenant aktif.
+// Tenant aktif diambil dari header 'x-tenant-id' (tenant switcher), DIVALIDASI
+// bahwa user benar-benar member. Kalau tidak ada/invalid → membership pertama.
 export async function getActor(req: Request): Promise<Actor | null> {
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
   if (!token) return null
@@ -16,9 +18,17 @@ export async function getActor(req: Request): Promise<Actor | null> {
   const { data: { user } } = await anon.auth.getUser(token)
   if (!user) return null
 
-  // DETERMINISTIK: kalau user kebetulan member >1 tenant, jangan ambil acak.
-  // Urutkan by created_at (membership paling awal = workspace utama),
-  // jadi /api/me dan semua query inbox SELALU pakai tenant yang sama.
+  // 1) Tenant yang diminta client (workspace yang sedang dibuka)
+  const wanted = (req.headers.get('x-tenant-id') || '').trim()
+  if (wanted) {
+    const { data: m } = await supabaseAdmin
+      .from('tenant_members').select('tenant_id, role')
+      .eq('user_id', user.id).eq('tenant_id', wanted).maybeSingle()
+    if (m) return { userId: user.id, tenantId: m.tenant_id as string, role: (m.role as string) ?? null }
+    // bukan member tenant itu → jangan pakai, lanjut fallback
+  }
+
+  // 2) Fallback deterministik: membership paling awal
   const { data: rows } = await supabaseAdmin
     .from('tenant_members')
     .select('tenant_id, role, created_at')
@@ -26,6 +36,6 @@ export async function getActor(req: Request): Promise<Actor | null> {
     .order('created_at', { ascending: true })
     .limit(1)
 
-  const m = rows?.[0]
-  return { userId: user.id, tenantId: (m?.tenant_id as string) ?? null, role: (m?.role as string) ?? null }
+  const first = rows?.[0]
+  return { userId: user.id, tenantId: (first?.tenant_id as string) ?? null, role: (first?.role as string) ?? null }
 }

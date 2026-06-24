@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { authFetch } from '@/lib/client-fetch'
+import { authFetch, getActiveTenant, setActiveTenant } from '@/lib/client-fetch'
 
 const NAV = [
   {
@@ -50,7 +50,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [displayName, setDisplayName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [tenants, setTenants] = useState<{ id: string; name: string; role: string; logo_url: string | null }[]>([])
+  const [activeTenantId, setActiveTenantId] = useState<string>('')
+  const [showWsMenu, setShowWsMenu] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
+  const wsMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     (async () => {
@@ -63,6 +67,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       setUserEmail(j.email || '')
       setDisplayName(j.displayName || '')
       setAvatarUrl(j.avatarUrl || null)
+      setTenants(j.tenants || [])
+      setActiveTenantId(j.tenant?.id || '')
+      // Sinkronkan localStorage kalau belum ada (mis. pertama kali login)
+      if (j.tenant?.id && !getActiveTenant()) setActiveTenant(j.tenant.id)
       setReady(true)
     })()
   }, [router, pathname])  // re-fetch on path change to reflect updates
@@ -71,10 +79,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setShowUserMenu(false)
+      if (wsMenuRef.current && !wsMenuRef.current.contains(e.target as Node)) setShowWsMenu(false)
     }
-    if (showUserMenu) document.addEventListener('mousedown', onClick)
+    if (showUserMenu || showWsMenu) document.addEventListener('mousedown', onClick)
     return () => document.removeEventListener('mousedown', onClick)
-  }, [showUserMenu])
+  }, [showUserMenu, showWsMenu])
+
+  function switchTenant(id: string) {
+    if (id === activeTenantId) { setShowWsMenu(false); return }
+    setActiveTenant(id)
+    // reload penuh biar semua data ke-fetch ulang dgn tenant baru
+    window.location.href = '/inbox'
+  }
 
   if (!ready) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
@@ -93,21 +109,45 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         display: 'flex', flexDirection: 'column',
         flexShrink: 0, position: 'sticky', top: 0, height: '100vh',
       }}>
-        {/* Workspace header */}
-        <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid #E5E5E5' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 3 }}>
+        {/* Workspace header + switcher */}
+        <div style={{ padding: '12px 12px', borderBottom: '1px solid #E5E5E5', position: 'relative' }} ref={wsMenuRef}>
+          <button onClick={() => setShowWsMenu(v => !v)} style={{
+            width: '100%', textAlign: 'left', cursor: 'pointer', background: 'transparent',
+            border: '1px solid transparent', borderRadius: 8, padding: '5px 7px',
+            display: 'flex', alignItems: 'center', gap: 9, fontFamily: 'inherit',
+          }}>
             {tenantLogo ? (
-              <img src={tenantLogo} alt={tenantName} width={22} height={22} style={{ display: 'block', borderRadius: 5, objectFit: 'cover', flexShrink: 0 }} />
+              <img src={tenantLogo} alt={tenantName} width={24} height={24} style={{ display: 'block', borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
             ) : (
-              <div style={{ width: 22, height: 22, borderRadius: 5, background: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
                 {(tenantName || 'W')[0].toUpperCase()}
               </div>
             )}
-            <span style={{ fontWeight: 700, fontSize: 14, color: '#0D0D0D', letterSpacing: '-0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tenantName}</span>
-          </div>
-          <div style={{ fontSize: 10, color: '#9CA3AF', paddingLeft: 31, letterSpacing: 0.5 }}>
-            CLOSARI
-          </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontWeight: 700, fontSize: 14, color: '#0D0D0D', letterSpacing: '-0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tenantName}</span>
+              <span style={{ display: 'block', fontSize: 10, color: '#9CA3AF', letterSpacing: 0.5 }}>CLOSARI</span>
+            </div>
+            {tenants.length > 1 && <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0 }}><path d="M2.5 4L5 6.5L7.5 4" stroke="#9CA3AF" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          </button>
+
+          {showWsMenu && tenants.length > 0 && (
+            <div style={{ position: 'absolute', top: 56, left: 12, right: 12, background: '#fff', border: '1px solid #E5E5E5', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', overflow: 'hidden', zIndex: 20 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', padding: '8px 12px 4px', letterSpacing: '0.05em' }}>WORKSPACE</div>
+              {tenants.map(t => (
+                <button key={t.id} onClick={() => switchTenant(t.id)} style={{
+                  width: '100%', textAlign: 'left', cursor: 'pointer', background: t.id === activeTenantId ? '#F0FDF4' : 'none',
+                  border: 'none', padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 9, fontFamily: 'inherit',
+                }}>
+                  <div style={{ width: 20, height: 20, borderRadius: 5, background: t.logo_url ? 'transparent' : '#16A34A', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11, flexShrink: 0, overflow: 'hidden' }}>
+                    {t.logo_url ? <img src={t.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (t.name || 'W')[0].toUpperCase()}
+                  </div>
+                  <span style={{ flex: 1, fontSize: 13, color: '#0D0D0D', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
+                  <span style={{ fontSize: 9, fontWeight: 600, color: '#6B7280', textTransform: 'capitalize' }}>{t.role}</span>
+                  {t.id === activeTenantId && <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 6L5 8.5L9.5 3.5" stroke="#16A34A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Nav */}
