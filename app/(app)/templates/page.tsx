@@ -287,6 +287,15 @@ export default function TemplatesPage() {
           </div>
         </div>
       )}
+      {showPreview && tab === 'create' && (
+        <WaPreview
+          header={headerText}
+          body={bodyText}
+          footer={footerText}
+          buttons={buttons}
+          examples={examples}
+        />
+      )}
     </div>
   )
 }
