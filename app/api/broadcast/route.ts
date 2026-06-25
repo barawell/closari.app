@@ -39,29 +39,43 @@ export async function POST(req: Request) {
     .from('wa_numbers').select('id, phone_number_id').eq('id', waNumberId).eq('tenant_id', actor.tenantId).maybeSingle()
   if (!num) return NextResponse.json({ error: 'nomor tidak ditemukan' }, { status: 404 })
 
-  // ── Resolusi penerima → SNAPSHOT ke target_phones ──────────────────
+  // ── Resolusi penerima → SNAPSHOT (phone + nama) ────────────────────
   const recipientMode: 'contacts' | 'csv' | 'manual' = b.recipient_mode || 'contacts'
-  let phones: string[] = []
+  let pairs: { phone: string; name?: string | null }[] = []
 
   if (recipientMode === 'contacts') {
     const segment: Segment = (b.segment as Segment) || 'all'
     const engagedOnly: boolean = b.engagedOnly !== false
     const eligible = await computeEligible(actor.tenantId, engagedOnly, segment)
-    phones = eligible.map((e) => e.phone)
+    pairs = eligible.map((e) => ({ phone: e.phone, name: e.name ?? null }))
   } else {
-    // CSV / manual: daftar nomor dikirim dari client
-    const raw: string[] = Array.isArray(b.recipients) ? b.recipients : []
-    phones = raw.map((p) => normalizePhone(String(p))).filter(Boolean)
+    // CSV / manual: daftar dikirim client — bisa string nomor ATAU objek {phone, name}
+    const raw: any[] = Array.isArray(b.recipients) ? b.recipients : []
+    pairs = raw.map((r) => {
+      if (r && typeof r === 'object') return { phone: normalizePhone(String(r.phone || '')), name: (r.name ?? null) }
+      return { phone: normalizePhone(String(r)), name: null }
+    }).filter((r) => r.phone)
   }
 
-  // Dedupe + buang opt-out (keamanan, walau dari CSV)
-  phones = Array.from(new Set(phones))
+  // Dedupe by phone (pertahankan nama pertama yang ada)
+  {
+    const seen = new Map<string, { phone: string; name?: string | null }>()
+    for (const p of pairs) {
+      const ex = seen.get(p.phone)
+      if (!ex || (!ex.name && p.name)) seen.set(p.phone, p)
+    }
+    pairs = Array.from(seen.values())
+  }
+
+  // Buang opt-out (keamanan, walau dari CSV)
+  let phones = pairs.map((p) => p.phone)
   if (phones.length) {
     const { data: opted } = await supabaseAdmin
       .from('wa_contacts').select('phone')
       .eq('tenant_id', actor.tenantId).eq('opted_out', true).in('phone', phones)
     const optedSet = new Set((opted || []).map((c: any) => c.phone))
-    phones = phones.filter((p) => !optedSet.has(p))
+    pairs = pairs.filter((p) => !optedSet.has(p.phone))
+    phones = pairs.map((p) => p.phone)
   }
 
   if (!phones.length) {
@@ -86,6 +100,16 @@ export async function POST(req: Request) {
   }).select('id').maybeSingle()
 
   if (error || !campaign) return NextResponse.json({ error: error?.message || 'gagal bikin campaign' }, { status: 500 })
+
+  // Snapshot nama per-penerima ke kolom `target_contacts` (jsonb).
+  // Update terpisah & toleran: kalau kolomnya belum dibuat (migration belum jalan),
+  // broadcast TETAP jalan — nama nanti di-lookup dari wa_contacts saat kirim.
+  if (pairs.some((p) => p.name)) {
+    const { error: tcErr } = await supabaseAdmin.from('broadcast_campaigns')
+      .update({ target_contacts: pairs.map((p) => ({ phone: p.phone, name: p.name || null })) })
+      .eq('id', campaign.id)
+    if (tcErr) console.warn('[broadcast] target_contacts belum tersimpan (jalankan migration target_contacts):', tcErr.message)
+  }
 
   return NextResponse.json({
     pending: true,

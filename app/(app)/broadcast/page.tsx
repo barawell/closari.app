@@ -21,6 +21,51 @@ function countVars(body: string): number {
 function renderTpl(body: string, params: string[]): string {
   return body.replace(/\{\{(\d+)\}\}/g, (_, n) => params[parseInt(n, 10) - 1] || `{{${n}}}`)
 }
+// Ambil nama depan dari nama lengkap (buat preview variabel otomatis)
+function firstName(name?: string | null): string {
+  const n = (name || '').trim()
+  return n ? n.split(/\s+/)[0] : ''
+}
+// Sumber tiap variabel: 'nama' = otomatis nama kontak per-penerima, 'manual' = teks tetap
+type ParamSrc = 'nama' | 'manual'
+// Penerima dengan nama opsional (dipakai contacts/CSV/Excel)
+type Recip = { phone: string; name?: string }
+
+// Header kolom yang dianggap "nomor" / "nama" saat parsing CSV/Excel
+const PHONE_HEADER = ['phone', 'nomor', 'no_hp', 'nohp', 'no hp', 'hp', 'telp', 'telepon', 'wa', 'whatsapp', 'msisdn', 'number', 'no']
+const NAME_HEADER = ['nama', 'name', 'full_name', 'fullname', 'contact', 'kontak', 'pelanggan', 'customer']
+function digitsOf(s: any) { return String(s ?? '').replace(/\D/g, '') }
+function isPhone(d: string) { return d.length >= 9 && d.length <= 15 }
+
+// Ubah baris-baris sel (2D) → daftar {phone, name}. Deteksi kolom dari header kalau ada,
+// kalau tidak → tebak: nomor = sel yang berupa angka valid, nama = sel teks pertama.
+function rowsToRecipients(rows: any[][]): Recip[] {
+  const clean = rows.map(r => (Array.isArray(r) ? r : [r]).map(c => String(c ?? '').trim())).filter(r => r.some(c => c))
+  if (!clean.length) return []
+  const head = clean[0].map(h => h.toLowerCase())
+  const pIdx = head.findIndex(h => PHONE_HEADER.some(k => h === k || h.includes(k)))
+  const nIdx = head.findIndex(h => NAME_HEADER.some(k => h === k || h.includes(k)))
+  const hasHeader = pIdx !== -1 || nIdx !== -1
+  const body = hasHeader ? clean.slice(1) : clean
+
+  const out: Recip[] = []
+  for (const cells of body) {
+    let phone = ''
+    let name = ''
+    if (hasHeader && pIdx !== -1) phone = digitsOf(cells[pIdx])
+    if (hasHeader && nIdx !== -1) name = cells[nIdx] || ''
+    if (!isPhone(phone)) { const pc = cells.find(c => isPhone(digitsOf(c))); phone = pc ? digitsOf(pc) : '' }
+    if (!name) name = cells.find(c => /[A-Za-z]/.test(c) && !isPhone(digitsOf(c))) || ''
+    if (isPhone(phone)) out.push({ phone, name: name || undefined })
+  }
+  // dedupe by phone (pertahankan nama pertama yang ada)
+  const map = new Map<string, Recip>()
+  for (const r of out) {
+    const ex = map.get(r.phone)
+    if (!ex || (!ex.name && r.name)) map.set(r.phone, r)
+  }
+  return Array.from(map.values())
+}
 
 export default function BroadcastPage() {
   const [step, setStep] = useState(1)
@@ -37,6 +82,8 @@ export default function BroadcastPage() {
   const [templates, setTemplates] = useState<Tpl[]>([])
   const [tplName, setTplName] = useState('')
   const [tplParams, setTplParams] = useState<string[]>([])
+  const [paramSrc, setParamSrc] = useState<ParamSrc[]>([])   // sumber tiap variabel
+  const [nameFallback, setNameFallback] = useState('Kak')    // dipakai kalau nama kontak kosong
 
   // Step 2 — recipients
   const [rmode, setRmode] = useState<'contacts' | 'csv' | 'manual'>('contacts')
@@ -45,7 +92,7 @@ export default function BroadcastPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [search, setSearch] = useState('')
   const [picked, setPicked] = useState<Record<string, boolean>>({})
-  const [csvPhones, setCsvPhones] = useState<string[]>([])
+  const [csvRows, setCsvRows] = useState<Recip[]>([])
   const [csvInfo, setCsvInfo] = useState('')
   const [manual, setManual] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
@@ -79,6 +126,14 @@ export default function BroadcastPage() {
 
   useEffect(() => { if (view === 'approval') loadPending() }, [view])
   useEffect(() => { if (view === 'history') loadHistory() }, [view])
+
+  // Default sumber tiap variabel saat template berganti:
+  // {{1}} → otomatis (nama kontak), sisanya → teks tetap. User bisa ubah manual.
+  useEffect(() => {
+    if (!selTpl || varCount === 0) { setParamSrc([]); setTplParams([]); return }
+    setParamSrc(Array.from({ length: varCount }, (_, i) => (i === 0 ? 'nama' : 'manual')))
+    setTplParams([])
+  }, [tplName, varCount])
 
   async function loadContacts() {
     const params = new URLSearchParams({ segment, ...(engagedOnly ? { engaged: '1' } : {}) })
@@ -115,47 +170,43 @@ export default function BroadcastPage() {
     setCsvInfo('Memproses…')
     try {
       const ext = f.name.split('.').pop()?.toLowerCase()
-      let phones: string[] = []
+      let recs: Recip[] = []
       if (ext === 'csv') {
         const txt = await f.text()
-        phones = parseCsv(txt)
+        const rows = txt.split(/\r?\n/).map(l => l.split(/[,;\t]/))
+        recs = rowsToRecipients(rows)
       } else if (ext === 'xlsx' || ext === 'xls') {
         // butuh paket 'xlsx' (npm i xlsx). Dynamic import biar bundle ringan.
         const XLSX = await import('xlsx')
         const buf = await f.arrayBuffer()
         const wb = XLSX.read(buf, { type: 'array' })
         const ws = wb.Sheets[wb.SheetNames[0]]
-        const rows: any[] = XLSX.utils.sheet_to_json(ws, { header: 1 })
-        phones = extractPhones(rows.flat().map(String))
+        const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
+        recs = rowsToRecipients(rows)
       } else {
         setCsvInfo('Format tidak didukung. Pakai .csv / .xlsx'); return
       }
-      const uniq = Array.from(new Set(phones))
-      setCsvPhones(uniq)
-      setCsvInfo(`${uniq.length} nomor terbaca dari ${f.name}`)
+      setCsvRows(recs)
+      const named = recs.filter(r => r.name).length
+      setCsvInfo(recs.length
+        ? `${recs.length} nomor terbaca dari ${f.name}` + (named ? ` · ${named} ada nama (variabel otomatis siap)` : ' · tidak ada kolom nama')
+        : `Tidak ada nomor valid di ${f.name}`)
     } catch (e: any) {
       setCsvInfo('Gagal baca file: ' + (e?.message || 'error') + ' (untuk Excel, jalankan: npm i xlsx)')
     }
-  }
-  function parseCsv(txt: string): string[] {
-    const lines = txt.split(/\r?\n/).filter(Boolean)
-    const cells = lines.flatMap(l => l.split(/[,;\t]/))
-    return extractPhones(cells)
   }
   function extractPhones(cells: string[]): string[] {
     return cells.map(c => c.replace(/\D/g, '')).filter(d => d.length >= 9 && d.length <= 15)
   }
 
-  // Penerima final (sesuai mode)
-  const finalRecipients = useMemo<string[]>(() => {
-    if (rmode === 'contacts') return filtered.filter(c => picked[c.id]).map(c => c.phone)
-    if (rmode === 'csv') return csvPhones
-    return extractPhones(manual.split(/[\n,;\t ]+/))
-  }, [rmode, filtered, picked, csvPhones, manual])
+  // Penerima final (sesuai mode) — bawa nama kalau ada (kontak / CSV / Excel)
+  const finalRecipients = useMemo<Recip[]>(() => {
+    if (rmode === 'contacts') return filtered.filter(c => picked[c.id]).map(c => ({ phone: c.phone, name: c.name }))
+    if (rmode === 'csv') return csvRows
+    return extractPhones(manual.split(/[\n,;\t ]+/)).map(phone => ({ phone }))
+  }, [rmode, filtered, picked, csvRows, manual])
 
-  const recipientCount = rmode === 'contacts'
-    ? (pickedCount || 0)
-    : finalRecipients.length
+  const recipientCount = finalRecipients.length
 
   // ── Submit ke approval ─────────────────────────────────────────────
   async function submit() {
@@ -167,7 +218,7 @@ export default function BroadcastPage() {
         recipient_mode: rmode,
       }
       if (mode === 'text') payload.text = text
-      else { payload.template_name = tplName; payload.language = selTpl?.language || 'id'; payload.template_params = tplParams.slice(0, varCount) }
+      else { payload.template_name = tplName; payload.language = selTpl?.language || 'id'; payload.template_params = buildParams() }
 
       if (rmode === 'contacts') {
         // kalau user pilih manual sebagian → kirim daftar; kalau "pilih semua" lewat segmen → biar server hitung
@@ -182,7 +233,7 @@ export default function BroadcastPage() {
       if (!res.ok) { alert(j.error || 'Gagal'); return }
       alert(`Diajukan ✓ — ${j.eligible_count} penerima. Menunggu approval admin.`)
       // reset
-      setStep(1); setText(''); setPicked({}); setCsvPhones([]); setManual(''); setCsvInfo(''); setTplParams([])
+      setStep(1); setText(''); setPicked({}); setCsvRows([]); setManual(''); setCsvInfo(''); setTplParams([]); setParamSrc([])
       setView('approval')
     } finally { setBusy(false) }
   }
@@ -206,7 +257,23 @@ export default function BroadcastPage() {
     } finally { setActingId(null) }
   }
 
-  const varsFilled = varCount === 0 || Array.from({ length: varCount }).every((_, i) => (tplParams[i] || '').trim().length > 0)
+  // Nilai final tiap variabel yang dikirim ke server.
+  // 'nama' → token "{{nama|<fallback>}}" yang di-resolve per-penerima saat kirim.
+  // 'manual' → teks tetap apa adanya.
+  function buildParams(): string[] {
+    return Array.from({ length: varCount }, (_, i) =>
+      paramSrc[i] === 'nama'
+        ? `{{nama|${nameFallback.trim() || 'Kak'}}}`
+        : (tplParams[i] || ''))
+  }
+  // Contoh nama buat preview: nama kontak pertama yg ke-load, kalau gak ada pakai fallback.
+  const sampleName = firstName(finalRecipients[0]?.name || contacts[0]?.name) || (nameFallback.trim() || 'Kak')
+  const previewParams = Array.from({ length: varCount }, (_, i) =>
+    paramSrc[i] === 'nama' ? sampleName : (tplParams[i] || `{{${i + 1}}}`))
+
+  // Variabel dianggap "terisi" kalau sumbernya otomatis (nama) ATAU teks manual sudah diisi.
+  const varsFilled = varCount === 0 || Array.from({ length: varCount }).every((_, i) =>
+    paramSrc[i] === 'nama' || (tplParams[i] || '').trim().length > 0)
   const canNext1 = mode === 'text' ? text.trim().length >= 10 : (!!tplName && varsFilled)
   const canSend = recipientCount > 0 && !!waNumberId && !busy
 
@@ -283,28 +350,49 @@ export default function BroadcastPage() {
                     {selTpl && varCount > 0 && (
                       <div style={{ marginTop: 12 }}>
                         <label style={lbl}>Isi variabel template</label>
-                        <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 8 }}>Template ini punya {varCount} variabel. Isi nilainya — wajib, kalau kosong Meta akan menolak pengiriman.</div>
+                        <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 10 }}>
+                          Template ini punya {varCount} variabel. Pilih <b>Nama kontak</b> biar otomatis terisi nama tiap penerima (per-orang), atau <b>Teks tetap</b> kalau mau satu nilai sama buat semua.
+                        </div>
                         {Array.from({ length: varCount }).map((_, i) => (
-                          <div key={i} style={{ marginBottom: 8 }}>
-                            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 3 }}>{`{{${i + 1}}}`}</div>
-                            <input
-                              value={tplParams[i] || ''}
-                              onChange={e => {
-                                const next = [...tplParams]
-                                next[i] = e.target.value
-                                setTplParams(next)
-                              }}
-                              placeholder={`Nilai untuk {{${i + 1}}}`}
-                              style={inp}
-                            />
+                          <div key={i} style={{ marginBottom: 10 }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <span style={{ fontSize: 12, color: '#6B7280', minWidth: 38 }}>{`{{${i + 1}}}`}</span>
+                              <select
+                                value={paramSrc[i] || 'manual'}
+                                onChange={e => {
+                                  const next = [...paramSrc]; next[i] = e.target.value as ParamSrc; setParamSrc(next)
+                                }}
+                                style={{ ...inp, maxWidth: 190, flexShrink: 0 }}>
+                                <option value="nama">Nama kontak (otomatis)</option>
+                                <option value="manual">Teks tetap</option>
+                              </select>
+                              {paramSrc[i] === 'nama' ? (
+                                <span style={{ fontSize: 12, color: '#15803D', background: '#F0FDF4', border: '1px solid #BBF7D0', padding: '7px 11px', borderRadius: 7, flex: 1 }}>
+                                  Otomatis → nama depan tiap penerima
+                                </span>
+                              ) : (
+                                <input
+                                  value={tplParams[i] || ''}
+                                  onChange={e => { const next = [...tplParams]; next[i] = e.target.value; setTplParams(next) }}
+                                  placeholder={`Nilai untuk {{${i + 1}}}`}
+                                  style={{ ...inp, flex: 1 }}
+                                />
+                              )}
+                            </div>
                           </div>
                         ))}
+                        {paramSrc.some(s => s === 'nama') && (
+                          <div style={{ marginTop: 4, display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <span style={{ fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>Kalau nama kosong, pakai:</span>
+                            <input value={nameFallback} onChange={e => setNameFallback(e.target.value)} placeholder="Kak" style={{ ...inp, maxWidth: 140 }} />
+                          </div>
+                        )}
                       </div>
                     )}
                     {selTpl && (
                       <div style={{ marginTop: 12, padding: '12px 14px', background: '#FAFAFA', border: '1px solid #F0F0F0', borderRadius: 8 }}>
-                        <div style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', marginBottom: 6, letterSpacing: '0.05em' }}>PREVIEW</div>
-                        <div style={{ fontSize: 13, color: '#0D0D0D', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{renderTpl(bodyOfTpl(selTpl), tplParams)}</div>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', marginBottom: 6, letterSpacing: '0.05em' }}>PREVIEW{paramSrc.some(s => s === 'nama') ? ` · contoh "${sampleName}"` : ''}</div>
+                        <div style={{ fontSize: 13, color: '#0D0D0D', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{renderTpl(bodyOfTpl(selTpl), previewParams)}</div>
                       </div>
                     )}
                   </>
@@ -370,10 +458,10 @@ export default function BroadcastPage() {
                   <div>
                     <div onClick={() => fileRef.current?.click()} style={{ border: '1.5px dashed #D4D4D4', borderRadius: 10, padding: '28px 16px', textAlign: 'center', cursor: 'pointer', background: '#FAFAFA' }}>
                       <div style={{ fontSize: 13, fontWeight: 500, color: '#0D0D0D', marginBottom: 4 }}>Klik untuk pilih file CSV / Excel</div>
-                      <div style={{ fontSize: 12, color: '#9CA3AF' }}>Kolom nomor otomatis dideteksi (phone/nomor/hp). Nama opsional.</div>
+                      <div style={{ fontSize: 12, color: '#9CA3AF' }}>Kolom <b>nomor</b> (phone/nomor/hp) &amp; <b>nama</b> (nama/name) otomatis dideteksi. Kalau ada kolom nama, variabel template bisa keisi otomatis per-orang.</div>
                     </div>
                     <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
-                    {csvInfo && <div style={{ marginTop: 10, fontSize: 13, color: csvPhones.length ? '#15803D' : '#B45309' }}>{csvInfo}</div>}
+                    {csvInfo && <div style={{ marginTop: 10, fontSize: 13, color: csvRows.length ? '#15803D' : '#B45309' }}>{csvInfo}</div>}
                   </div>
                 )}
 
@@ -399,7 +487,7 @@ export default function BroadcastPage() {
                   Penerima opt-out otomatis dibuang. Broadcast ini masuk antrian <b>approval</b> dulu — admin yang menekan kirim.
                 </div>
                 <div style={{ padding: '12px 14px', background: '#FAFAFA', border: '1px solid #F0F0F0', borderRadius: 8, fontSize: 13, color: '#0D0D0D', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-                  {mode === 'text' ? text : `Template: ${tplName}\n\n${renderTpl(bodyOfTpl(selTpl), tplParams)}`}
+                  {mode === 'text' ? text : `Template: ${tplName}\n\n${renderTpl(bodyOfTpl(selTpl), previewParams)}`}
                 </div>
               </>
             )}

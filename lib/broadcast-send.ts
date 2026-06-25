@@ -16,14 +16,39 @@ const MAX_PER_RUN = 2000
 
 export type Segment = 'all' | 'loyal' | 'new'
 
+// ── Variabel otomatis "nama kontak" ────────────────────────────────
+// Token yang ditulis broadcast UI: "{{nama}}" atau "{{nama|Fallback}}".
+// Saat kirim, token ini di-resolve jadi NAMA DEPAN tiap penerima (per-orang).
+const AUTO_NAME_RE = /^\s*\{\{\s*nama\s*(?:\|([^}]*))?\}\}\s*$/i
+
+function firstNameOf(name?: string | null): string {
+  const n = (name || '').trim()
+  return n ? n.split(/\s+/)[0] : ''
+}
+// Apakah ada minimal 1 variabel pakai token otomatis-nama?
+function paramsUseAutoName(params: any[]): boolean {
+  return (params || []).some((p) => AUTO_NAME_RE.test(String(p ?? '')))
+}
+// Bangun params final buat 1 penerima: token "{{nama|fb}}" → nama depan, sisanya apa adanya.
+function resolveParamsFor(params: any[], recipientName?: string | null): string[] {
+  const fn = firstNameOf(recipientName)
+  return (params || []).map((p) => {
+    const s = String(p ?? '')
+    const m = AUTO_NAME_RE.exec(s)
+    if (!m) return s
+    const fallback = (m[1] || '').trim() || 'Kak'
+    return fn || fallback
+  })
+}
+
 // Kontak eligible (tidak opt-out, engaged opsional, lewat cooldown, filter segmen).
 export async function computeEligible(
   tenantId: string,
   engagedOnly: boolean,
   segment: Segment = 'all',
-): Promise<{ id: string; phone: string }[]> {
+): Promise<{ id: string; phone: string; name?: string | null }[]> {
   let q = supabaseAdmin.from('wa_contacts')
-    .select('id, phone, last_message_at, last_broadcast_at, last_order_at, order_count')
+    .select('id, phone, name, last_message_at, last_broadcast_at, last_order_at, order_count')
     .eq('tenant_id', tenantId).eq('opted_out', false)
 
   if (engagedOnly) {
@@ -42,7 +67,7 @@ export async function computeEligible(
     // cooldown
     if (!c.last_broadcast_at) return true
     return new Date(c.last_broadcast_at).getTime() < cooldownCut
-  }).slice(0, MAX_PER_RUN).map((c: any) => ({ id: c.id, phone: c.phone }))
+  }).slice(0, MAX_PER_RUN).map((c: any) => ({ id: c.id, phone: c.phone, name: c.name }))
 }
 
 // Kirim 1 template ke 1 nomor.
@@ -88,9 +113,23 @@ export async function runCampaign(opts: {
     .eq('id', campaignId).maybeSingle()
   if (!camp) return { total: 0, sent: 0, failed: 0 }
 
-  // Tentukan penerima: snapshot target_phones kalau ada, kalau tidak hitung engaged.
-  let recipients: { id?: string; phone: string }[] = []
-  if (Array.isArray(camp.target_phones) && camp.target_phones.length) {
+  // Snapshot nama per-penerima (kolom `target_contacts`, opsional).
+  // Di-select terpisah & toleran: kalau kolom belum ada, data null → fallback ke target_phones.
+  let snapNames: { phone: string; name?: string | null }[] = []
+  {
+    const { data: tc } = await supabaseAdmin
+      .from('broadcast_campaigns').select('target_contacts').eq('id', campaignId).maybeSingle()
+    const arr = (tc as any)?.target_contacts
+    if (Array.isArray(arr)) snapNames = arr
+  }
+
+  // Tentukan penerima: snapshot bernama → snapshot nomor → hitung engaged.
+  let recipients: { id?: string; phone: string; name?: string | null }[] = []
+  if (snapNames.length) {
+    recipients = snapNames
+      .map((s) => ({ phone: normalizePhone(String(s.phone || '')), name: s.name ?? null }))
+      .filter((r) => r.phone)
+  } else if (Array.isArray(camp.target_phones) && camp.target_phones.length) {
     recipients = camp.target_phones.map((p: string) => ({ phone: normalizePhone(p) })).filter((r) => r.phone)
   } else {
     recipients = await computeEligible(tenantId, camp.engaged_only !== false)
@@ -100,6 +139,22 @@ export async function runCampaign(opts: {
     .update({ status: 'sending', total: recipients.length }).eq('id', campaignId)
 
   const isTemplate = camp.kind === 'template' && !!camp.template_name
+  const tplParams: any[] = Array.isArray(camp.template_params) ? camp.template_params : []
+
+  // Kalau template pakai variabel otomatis-nama, siapkan map phone → nama.
+  // (jalur snapshot target_phones gak bawa nama, jadi lookup dari wa_contacts)
+  const nameByPhone = new Map<string, string>()
+  if (isTemplate && paramsUseAutoName(tplParams)) {
+    for (const r of recipients) if (r.name) nameByPhone.set(r.phone, r.name as string)
+    const missing = recipients.filter((r) => !nameByPhone.has(r.phone)).map((r) => r.phone)
+    for (let i = 0; i < missing.length; i += 400) {
+      const chunk = missing.slice(i, i + 400)
+      const { data: rows } = await supabaseAdmin.from('wa_contacts')
+        .select('phone, name').eq('tenant_id', tenantId).in('phone', chunk)
+      for (const row of rows || []) if (row?.name) nameByPhone.set(row.phone, row.name)
+    }
+  }
+
   let sent = 0, failed = 0
   const nowIso = new Date().toISOString()
 
@@ -117,8 +172,9 @@ export async function runCampaign(opts: {
     }
 
     const c = recipients[i]
+    const perParams = resolveParamsFor(tplParams, nameByPhone.get(c.phone) ?? c.name)
     const r = isTemplate
-      ? await sendTemplate(phoneNumberId, accessToken, c.phone, camp.template_name as string, camp.language as string, Array.isArray(camp.template_params) ? camp.template_params : [])
+      ? await sendTemplate(phoneNumberId, accessToken, c.phone, camp.template_name as string, camp.language as string, perParams)
       : await sendText(phoneNumberId, accessToken, c.phone, camp.body as string)
     const ok = r.ok
     if (ok) sent++; else { failed++; lastErr = r.error || lastErr }
