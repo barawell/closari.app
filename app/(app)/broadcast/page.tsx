@@ -11,6 +11,16 @@ const COST_PER_MSG = 700 // Rp, estimasi tampilan (sesuaikan dgn tarif Meta-mu)
 function fmtRp(n: number) { return 'Rp ' + n.toLocaleString('id-ID') }
 function fmtDate(s: string) { return new Date(s).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }
 function bodyOfTpl(t?: Tpl) { return t ? (t.components || []).find((x: any) => x.type === 'BODY')?.text || '' : '' }
+// Hitung jumlah variabel unik {{1}}, {{2}}, dst di body template
+function countVars(body: string): number {
+  const matches = body.match(/\{\{(\d+)\}\}/g) || []
+  const nums = matches.map(m => parseInt(m.replace(/[^0-9]/g, ''), 10)).filter(n => !isNaN(n))
+  return nums.length ? Math.max(...nums) : 0
+}
+// Ganti {{1}} dst dengan nilai params buat preview
+function renderTpl(body: string, params: string[]): string {
+  return body.replace(/\{\{(\d+)\}\}/g, (_, n) => params[parseInt(n, 10) - 1] || `{{${n}}}`)
+}
 
 export default function BroadcastPage() {
   const [step, setStep] = useState(1)
@@ -26,6 +36,7 @@ export default function BroadcastPage() {
   const [category, setCategory] = useState('MARKETING')
   const [templates, setTemplates] = useState<Tpl[]>([])
   const [tplName, setTplName] = useState('')
+  const [tplParams, setTplParams] = useState<string[]>([])
 
   // Step 2 — recipients
   const [rmode, setRmode] = useState<'contacts' | 'csv' | 'manual'>('contacts')
@@ -48,6 +59,7 @@ export default function BroadcastPage() {
   const isAdmin = me?.role === 'admin' || me?.role === 'owner'
   const approvedTpls = templates.filter(t => t.status === 'APPROVED')
   const selTpl = approvedTpls.find(t => t.name === tplName)
+  const varCount = selTpl ? countVars(bodyOfTpl(selTpl)) : 0
 
   useEffect(() => {
     (async () => {
@@ -155,7 +167,7 @@ export default function BroadcastPage() {
         recipient_mode: rmode,
       }
       if (mode === 'text') payload.text = text
-      else { payload.template_name = tplName; payload.language = selTpl?.language || 'id' }
+      else { payload.template_name = tplName; payload.language = selTpl?.language || 'id'; payload.template_params = tplParams.slice(0, varCount) }
 
       if (rmode === 'contacts') {
         // kalau user pilih manual sebagian → kirim daftar; kalau "pilih semua" lewat segmen → biar server hitung
@@ -170,7 +182,7 @@ export default function BroadcastPage() {
       if (!res.ok) { alert(j.error || 'Gagal'); return }
       alert(`Diajukan ✓ — ${j.eligible_count} penerima. Menunggu approval admin.`)
       // reset
-      setStep(1); setText(''); setPicked({}); setCsvPhones([]); setManual(''); setCsvInfo('')
+      setStep(1); setText(''); setPicked({}); setCsvPhones([]); setManual(''); setCsvInfo(''); setTplParams([])
       setView('approval')
     } finally { setBusy(false) }
   }
@@ -194,7 +206,8 @@ export default function BroadcastPage() {
     } finally { setActingId(null) }
   }
 
-  const canNext1 = mode === 'text' ? text.trim().length >= 10 : !!tplName
+  const varsFilled = varCount === 0 || Array.from({ length: varCount }).every((_, i) => (tplParams[i] || '').trim().length > 0)
+  const canNext1 = mode === 'text' ? text.trim().length >= 10 : (!!tplName && varsFilled)
   const canSend = recipientCount > 0 && !!waNumberId && !busy
 
   return (
@@ -262,15 +275,36 @@ export default function BroadcastPage() {
                     {approvedTpls.length === 0 ? (
                       <div style={{ fontSize: 12, color: '#9CA3AF', padding: '12px 0' }}>Belum ada template approved. Buat di menu Template dulu.</div>
                     ) : (
-                      <select value={tplName} onChange={e => setTplName(e.target.value)} style={inp}>
+                      <select value={tplName} onChange={e => { setTplName(e.target.value); setTplParams([]) }} style={inp}>
                         <option value="">— pilih —</option>
                         {approvedTpls.map(t => <option key={t.name} value={t.name}>{t.name} — {t.category}</option>)}
                       </select>
                     )}
+                    {selTpl && varCount > 0 && (
+                      <div style={{ marginTop: 12 }}>
+                        <label style={lbl}>Isi variabel template</label>
+                        <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 8 }}>Template ini punya {varCount} variabel. Isi nilainya — wajib, kalau kosong Meta akan menolak pengiriman.</div>
+                        {Array.from({ length: varCount }).map((_, i) => (
+                          <div key={i} style={{ marginBottom: 8 }}>
+                            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 3 }}>{`{{${i + 1}}}`}</div>
+                            <input
+                              value={tplParams[i] || ''}
+                              onChange={e => {
+                                const next = [...tplParams]
+                                next[i] = e.target.value
+                                setTplParams(next)
+                              }}
+                              placeholder={`Nilai untuk {{${i + 1}}}`}
+                              style={inp}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {selTpl && (
                       <div style={{ marginTop: 12, padding: '12px 14px', background: '#FAFAFA', border: '1px solid #F0F0F0', borderRadius: 8 }}>
                         <div style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', marginBottom: 6, letterSpacing: '0.05em' }}>PREVIEW</div>
-                        <div style={{ fontSize: 13, color: '#0D0D0D', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{bodyOfTpl(selTpl)}</div>
+                        <div style={{ fontSize: 13, color: '#0D0D0D', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{renderTpl(bodyOfTpl(selTpl), tplParams)}</div>
                       </div>
                     )}
                   </>
@@ -365,7 +399,7 @@ export default function BroadcastPage() {
                   Penerima opt-out otomatis dibuang. Broadcast ini masuk antrian <b>approval</b> dulu — admin yang menekan kirim.
                 </div>
                 <div style={{ padding: '12px 14px', background: '#FAFAFA', border: '1px solid #F0F0F0', borderRadius: 8, fontSize: 13, color: '#0D0D0D', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-                  {mode === 'text' ? text : `Template: ${tplName}\n\n${bodyOfTpl(selTpl)}`}
+                  {mode === 'text' ? text : `Template: ${tplName}\n\n${renderTpl(bodyOfTpl(selTpl), tplParams)}`}
                 </div>
               </>
             )}

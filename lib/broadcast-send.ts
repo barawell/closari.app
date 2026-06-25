@@ -48,16 +48,21 @@ export async function computeEligible(
 // Kirim 1 template ke 1 nomor.
 async function sendTemplate(
   phoneNumberId: string, accessToken: string, to: string,
-  templateName: string, language: string,
+  templateName: string, language: string, params: string[] = [],
 ): Promise<{ ok: boolean; waMessageId?: string; error?: string }> {
   try {
+    const template: any = { name: templateName, language: { code: language || 'id' } }
+    // Kalau template punya variabel {{1}}, {{2}}, dst → kirim sebagai body parameters
+    if (params && params.length > 0) {
+      template.components = [{
+        type: 'body',
+        parameters: params.map((p) => ({ type: 'text', text: String(p ?? '') })),
+      }]
+    }
     const res = await fetch(`${GRAPH}/${phoneNumberId}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp', to, type: 'template',
-        template: { name: templateName, language: { code: language || 'id' } },
-      }),
+      body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'template', template }),
     })
     const j = await res.json().catch(() => ({}))
     if (!res.ok) return { ok: false, error: j?.error?.message || `HTTP ${res.status}` }
@@ -79,7 +84,7 @@ export async function runCampaign(opts: {
   // Ambil snapshot campaign
   const { data: camp } = await supabaseAdmin
     .from('broadcast_campaigns')
-    .select('body, kind, template_name, language, target_phones, engaged_only')
+    .select('body, kind, template_name, language, target_phones, engaged_only, template_params')
     .eq('id', campaignId).maybeSingle()
   if (!camp) return { total: 0, sent: 0, failed: 0 }
 
@@ -113,7 +118,7 @@ export async function runCampaign(opts: {
 
     const c = recipients[i]
     const r = isTemplate
-      ? await sendTemplate(phoneNumberId, accessToken, c.phone, camp.template_name as string, camp.language as string)
+      ? await sendTemplate(phoneNumberId, accessToken, c.phone, camp.template_name as string, camp.language as string, Array.isArray(camp.template_params) ? camp.template_params : [])
       : await sendText(phoneNumberId, accessToken, c.phone, camp.body as string)
     const ok = r.ok
     if (ok) sent++; else { failed++; lastErr = r.error || lastErr }

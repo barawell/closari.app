@@ -26,6 +26,7 @@ export async function POST(req: Request) {
   const text = (b.text || '').trim()
   const templateName = (b.template_name || '').trim()
   const language = (b.language || 'id').trim()
+  const templateParams: string[] = Array.isArray(b.template_params) ? b.template_params.map((p: any) => String(p ?? '')) : []
   if (mode === 'text' && text.length < 10) {
     return NextResponse.json({ error: 'Pesan teks minimal 10 karakter.' }, { status: 400 })
   }
@@ -75,6 +76,7 @@ export async function POST(req: Request) {
     body: mode === 'text' ? text : `[template] ${templateName}`,
     template_name: mode === 'template' ? templateName : null,
     language: mode === 'template' ? language : null,
+    template_params: mode === 'template' ? templateParams : null,
     category,
     engaged_only: recipientMode === 'contacts' ? (b.engagedOnly !== false) : false,
     target_phones: phones,
