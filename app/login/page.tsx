@@ -3,6 +3,7 @@ import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { BrandLoader } from '@/app/Loader'
 
 function LoginInner() {
   const router = useRouter()
@@ -184,7 +185,7 @@ const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', border: '
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', fontSize: 13, color: '#9CA3AF' }}>Memuat…</div>}>
+    <Suspense fallback={<BrandLoader full />}>
       <LoginInner />
     </Suspense>
   )

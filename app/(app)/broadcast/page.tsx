@@ -278,7 +278,7 @@ export default function BroadcastPage() {
   const canSend = recipientCount > 0 && !!waNumberId && !busy
 
   return (
-    <div style={{ padding: '32px 36px', maxWidth: 820 }}>
+    <div className="page-wrap" style={{ maxWidth: 820 }}>
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: '#0D0D0D', letterSpacing: '-0.02em', marginBottom: 3 }}>Broadcast</h1>
         <p style={{ fontSize: 13, color: '#6B7280' }}>Susun pesan, pilih penerima, lalu ajukan. Broadcast dikirim setelah di-approve admin.</p>
@@ -477,7 +477,7 @@ export default function BroadcastPage() {
 
             {step === 3 && (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 18 }}>
+                <div className="grid-4" style={{ marginBottom: 18 }}>
                   <Box label="PENERIMA" value={String(recipientCount)} />
                   <Box label="KATEGORI" value={category} />
                   <Box label="BIAYA / PESAN" value={fmtRp(COST_PER_MSG)} />

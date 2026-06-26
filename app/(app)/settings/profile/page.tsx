@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { authFetch } from '@/lib/client-fetch'
+import { BrandLoader } from '@/app/Loader'
 
 export default function ProfilePage() {
   const [loaded, setLoaded] = useState(false)
@@ -109,7 +110,7 @@ export default function ProfilePage() {
     } finally { setSubmittingPwd(false) }
   }
 
-  if (!loaded) return <div style={{ fontSize: 13, color: '#9CA3AF' }}>Memuat…</div>
+  if (!loaded) return <BrandLoader full />
 
   const initial = (displayName || email || '?')[0].toUpperCase()
 

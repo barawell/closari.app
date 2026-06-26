@@ -43,3 +43,66 @@ input, textarea, select {
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 14px;
 }
+
+/* ── Responsive helpers & PWA ─────────────────────────────────── */
+html, body { max-width: 100%; overflow-x: hidden; }
+body { min-height: 100vh; min-height: 100dvh; }
+
+/* Padding halaman: lega di desktop, hemat di mobile */
+.page-wrap { padding: 32px 36px; }
+@media (max-width: 899px) { .page-wrap { padding: 16px 14px; } }
+
+/* Grid form yang stack di layar kecil */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 560px) { .grid-2 { grid-template-columns: 1fr; } }
+
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 560px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+
+/* ── App shell: sidebar jadi drawer di mobile ─────────────────── */
+.app-shell { display: flex; min-height: 100vh; min-height: 100dvh; background: #fff; }
+.app-sidebar { position: sticky; top: 0; height: 100vh; height: 100dvh; }
+.app-topbar { display: none; }
+.app-backdrop { display: none; }
+.app-main { flex: 1; min-width: 0; }
+
+@media (max-width: 899px) {
+  .app-sidebar {
+    position: fixed; left: 0; top: 0; z-index: 60;
+    transform: translateX(-100%); transition: transform 0.22s ease;
+    padding-top: env(safe-area-inset-top);
+  }
+  .app-sidebar.open { transform: translateX(0); box-shadow: 2px 0 18px rgba(0,0,0,0.18); }
+
+  .app-topbar {
+    display: flex; align-items: center; gap: 10px;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    height: calc(52px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 14px 0;
+    background: #fff; border-bottom: 1px solid #E5E5E5;
+  }
+  .app-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 55;
+    background: rgba(0,0,0,0.4); opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .app-backdrop.open { opacity: 1; pointer-events: auto; }
+
+  .app-main { padding-top: calc(52px + env(safe-area-inset-top)); }
+}
+
+/* Pastikan elemen lebar (tabel/preview) gak bikin scroll horizontal di mobile */
+@media (max-width: 560px) {
+  img, svg, video { max-width: 100%; }
+}
+
+/* ── Branded loader (logo Closari) ────────────────────────────── */
+.closari-spinner { position: relative; width: 60px; height: 60px; display: grid; place-items: center; }
+.closari-spinner-ring { position: absolute; inset: 0; animation: closari-spin 0.85s linear infinite; transform-origin: center; }
+.closari-spinner-logo { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; animation: closari-pulse 1.6s ease-in-out infinite; }
+.closari-loader-full { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; background: #fff; }
+@keyframes closari-spin { to { transform: rotate(360deg); } }
+@keyframes closari-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.9); } }
+@media (prefers-reduced-motion: reduce) {
+  .closari-spinner-ring, .closari-spinner-logo { animation: none; }
+}

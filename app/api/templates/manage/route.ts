@@ -13,6 +13,7 @@
 import { NextResponse } from 'next/server'
 import { getActor } from '@/lib/actor'
 import { getWabaAuth } from '@/lib/wa-account'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export const dynamic = 'force-dynamic'
 const GRAPH = 'https://graph.facebook.com/v21.0'
@@ -54,15 +55,19 @@ export async function POST(req: Request) {
   const footerText = String(b.footer_text || '').trim()
   const bodyExamples: string[] = Array.isArray(b.body_examples) ? b.body_examples.filter(Boolean) : []
   const buttons: any[] = Array.isArray(b.buttons) ? b.buttons : []
+  // Khusus AUTHENTICATION
+  const otpButtonText = String(b.otp_button_text || 'Salin Kode').trim() || 'Salin Kode'
+  const codeExpiryMin = Math.max(0, Math.min(90, parseInt(String(b.code_expiration_minutes ?? ''), 10) || 0))
+  const isAuth = category === 'AUTHENTICATION'
 
   if (!name) return NextResponse.json({ error: 'Nama template wajib.' }, { status: 400 })
-  if (!bodyText) return NextResponse.json({ error: 'Isi body wajib.' }, { status: 400 })
+  if (!isAuth && !bodyText) return NextResponse.json({ error: 'Isi body wajib.' }, { status: 400 })
   if (!['MARKETING', 'UTILITY', 'AUTHENTICATION'].includes(category)) {
     return NextResponse.json({ error: 'Kategori harus MARKETING / UTILITY / AUTHENTICATION.' }, { status: 400 })
   }
 
-  // Hitung jumlah variabel {{n}} di body
-  const varCount = (bodyText.match(/\{\{\s*\d+\s*\}\}/g) || []).length
+  // Hitung jumlah variabel {{n}} di body (tidak berlaku utk AUTHENTICATION)
+  const varCount = isAuth ? 0 : (bodyText.match(/\{\{\s*\d+\s*\}\}/g) || []).length
   if (varCount > 0 && bodyExamples.length < varCount) {
     return NextResponse.json({
       error: `Body punya ${varCount} variabel ({{1}}..). Isi ${varCount} contoh nilai dulu (untuk review Meta).`,
@@ -75,31 +80,43 @@ export async function POST(req: Request) {
   // Susun components sesuai format Meta
   const components: any[] = []
 
-  if (headerText) {
-    components.push({ type: 'HEADER', format: 'TEXT', text: headerText })
+  if (isAuth) {
+    // Template AUTHENTICATION punya format BAKU dari Meta:
+    // - BODY tanpa teks custom (Meta auto-generate "{{1}} adalah kode verifikasi Anda")
+    // - FOOTER opsional dgn masa berlaku kode
+    // - BUTTONS wajib: 1 tombol OTP (COPY_CODE)
+    // Header/body/footer/tombol custom diabaikan — kalau dikirim, Meta menolak.
+    components.push({ type: 'BODY', add_security_recommendation: true })
+    if (codeExpiryMin > 0) components.push({ type: 'FOOTER', code_expiration_minutes: codeExpiryMin })
+    components.push({ type: 'BUTTONS', buttons: [{ type: 'OTP', otp_type: 'COPY_CODE', text: otpButtonText }] })
+  } else {
+    if (headerText) {
+      components.push({ type: 'HEADER', format: 'TEXT', text: headerText })
+    }
+
+    const bodyComp: any = { type: 'BODY', text: bodyText }
+    if (varCount > 0) {
+      bodyComp.example = { body_text: [bodyExamples.slice(0, varCount)] }
+    }
+    components.push(bodyComp)
+
+    if (footerText) {
+      components.push({ type: 'FOOTER', text: footerText })
+    }
+
+    if (buttons.length) {
+      const btns = buttons.map((bt: any) => {
+        const t = String(bt.type || 'QUICK_REPLY').toUpperCase()
+        if (t === 'URL') return { type: 'URL', text: bt.text, url: bt.url }
+        if (t === 'PHONE_NUMBER') return { type: 'PHONE_NUMBER', text: bt.text, phone_number: bt.phone }
+        return { type: 'QUICK_REPLY', text: bt.text }
+      }).filter((x: any) => x.text)
+      if (btns.length) components.push({ type: 'BUTTONS', buttons: btns })
+    }
   }
 
-  const bodyComp: any = { type: 'BODY', text: bodyText }
-  if (varCount > 0) {
-    bodyComp.example = { body_text: [bodyExamples.slice(0, varCount)] }
-  }
-  components.push(bodyComp)
-
-  if (footerText) {
-    components.push({ type: 'FOOTER', text: footerText })
-  }
-
-  if (buttons.length) {
-    const btns = buttons.map((bt: any) => {
-      const t = String(bt.type || 'QUICK_REPLY').toUpperCase()
-      if (t === 'URL') return { type: 'URL', text: bt.text, url: bt.url }
-      if (t === 'PHONE_NUMBER') return { type: 'PHONE_NUMBER', text: bt.text, phone_number: bt.phone }
-      return { type: 'QUICK_REPLY', text: bt.text }
-    }).filter((x: any) => x.text)
-    if (btns.length) components.push({ type: 'BUTTONS', buttons: btns })
-  }
-
-  const payload = { name, language, category, components }
+  // AUTHENTICATION wajib pakai message_send_ttl_seconds? tidak — cukup components di atas.
+  const payload: any = { name, language, category, components }
 
   const res = await fetch(`${GRAPH}/${auth.wabaId}/message_templates`, {
     method: 'POST',
@@ -130,6 +147,17 @@ export async function DELETE(req: Request) {
     headers: { Authorization: `Bearer ${auth.accessToken}` },
   })
   const j = await res.json().catch(() => ({}))
-  if (!res.ok) return NextResponse.json({ error: j?.error?.message || `gagal (${res.status})` }, { status: 502 })
+
+  // Meta kadang balas error "not found" kalau template sudah hilang di sisi mereka,
+  // tapi baris lokal masih ada → tetap bersihkan lokal supaya tidak jadi "ghost".
+  const notFound = res.status === 404 || /not.*found|does not exist|tidak ditemukan/i.test(j?.error?.message || '')
+  if (!res.ok && !notFound) {
+    return NextResponse.json({ error: j?.error?.message || `gagal (${res.status})` }, { status: 502 })
+  }
+
+  // Hapus salinan lokal (semua bahasa dengan nama ini) biar tidak muncul lagi setelah sync.
+  await supabaseAdmin.from('wa_templates')
+    .delete().eq('tenant_id', actor.tenantId).eq('name', name)
+
   return NextResponse.json({ ok: true })
 }

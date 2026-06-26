@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { authFetch } from '@/lib/client-fetch'
+import { BrandLoader } from '@/app/Loader'
 
 type Member = { user_id: string; email: string; role: string; display_name?: string }
 type Invite = { id: string; email: string; role: string; created_at: string }
@@ -85,7 +86,7 @@ export default function MembersPage() {
         </div>
       )}
 
-      {loading ? <div style={{ fontSize: 13, color: '#9CA3AF', padding: 20 }}>Memuat…</div> : (
+      {loading ? <BrandLoader /> : (
         <>
           <div style={{ fontSize: 12, fontWeight: 600, color: '#9CA3AF', letterSpacing: '0.03em', marginBottom: 8 }}>ANGGOTA ({members.length})</div>
           <div style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>

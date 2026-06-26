@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { authFetch } from '@/lib/client-fetch'
+import { BrandLoader } from '@/app/Loader'
 
 type Config = {
   enabled: boolean
@@ -101,7 +102,7 @@ export default function HaloAiPage() {
 
   function resetChat() { setChat([]) }
 
-  if (!loaded) return <div style={{ padding: 40, fontSize: 13, color: '#9CA3AF' }}>Memuat…</div>
+  if (!loaded) return <BrandLoader full />
 
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }
   const helpStyle: React.CSSProperties = { fontSize: 12, color: '#9CA3AF', marginTop: 4, marginBottom: 12, lineHeight: 1.5 }

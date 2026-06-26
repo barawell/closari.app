@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { authFetch } from '@/lib/client-fetch'
+import { BrandLoader } from '@/app/Loader'
 
 type Contact = {
   id: string; name: string | null; phone: string
@@ -103,7 +104,7 @@ export default function FollowUpPage() {
       </div>
 
       {loading ? (
-        <div style={{ fontSize: 13, color: '#9CA3AF', padding: 20 }}>Memuat…</div>
+        <BrandLoader />
       ) : tab === 'pending' ? (
         contacts.length === 0 ? (
           <div style={{ padding: '40px 16px', textAlign: 'center', fontSize: 13, color: '#9CA3AF', lineHeight: 1.6, background: '#FAFAFA', borderRadius: 10, border: '1px solid #F0F0F0' }}>

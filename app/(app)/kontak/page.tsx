@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { authFetch } from '@/lib/client-fetch'
+import { BrandLoader } from '@/app/Loader'
 
 type Contact = { id: string; phone: string; name?: string; segment: 'loyal' | 'new'; opted_out?: boolean }
 
@@ -164,7 +165,7 @@ export default function KontakPage() {
       {/* list */}
       <div style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 12, overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ padding: 28, textAlign: 'center', fontSize: 13, color: '#9CA3AF' }}>Memuat…</div>
+          <BrandLoader />
         ) : filtered.length === 0 ? (
           <div style={{ padding: 36, textAlign: 'center', fontSize: 13, color: '#9CA3AF' }}>Belum ada kontak. Import dari CSV/Excel di atas.</div>
         ) : (

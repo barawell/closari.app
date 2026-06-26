@@ -2,6 +2,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { BrandLoader } from '@/app/Loader'
 
 function UpdatePasswordInner() {
   const router = useRouter()
@@ -101,7 +102,7 @@ function UpdatePasswordInner() {
 export default function UpdatePasswordPage() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F7F7F7' }}>
-      <Suspense fallback={<div style={{ fontSize: 13, color: '#9CA3AF' }}>Memuat…</div>}>
+      <Suspense fallback={<BrandLoader full />}>
         <UpdatePasswordInner />
       </Suspense>
     </div>

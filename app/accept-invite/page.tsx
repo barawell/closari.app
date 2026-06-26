@@ -2,6 +2,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { BrandLoader } from '@/app/Loader'
 
 function AcceptInviteInner() {
   const router = useRouter()
@@ -147,7 +148,7 @@ function AcceptInviteInner() {
 export default function AcceptInvitePage() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F7F7F7' }}>
-      <Suspense fallback={<div style={{ fontSize: 13, color: '#9CA3AF' }}>Memuat…</div>}>
+      <Suspense fallback={<BrandLoader full />}>
         <AcceptInviteInner />
       </Suspense>
     </div>

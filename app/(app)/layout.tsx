@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { authFetch, getActiveTenant, setActiveTenant } from '@/lib/client-fetch'
+import { BrandLoader } from '@/app/Loader'
 
 const NAV = [
   {
@@ -57,6 +58,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [tenants, setTenants] = useState<{ id: string; name: string; role: string; logo_url: string | null }[]>([])
   const [activeTenantId, setActiveTenantId] = useState<string>('')
   const [showWsMenu, setShowWsMenu] = useState(false)
+  const [mobileNav, setMobileNav] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
   const wsMenuRef = useRef<HTMLDivElement>(null)
 
@@ -89,6 +91,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('mousedown', onClick)
   }, [showUserMenu, showWsMenu])
 
+  // Tutup drawer mobile tiap pindah halaman
+  useEffect(() => { setMobileNav(false) }, [pathname])
+
   function switchTenant(id: string) {
     if (id === activeTenantId) { setShowWsMenu(false); return }
     setActiveTenant(id)
@@ -96,23 +101,38 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     window.location.href = '/inbox'
   }
 
-  if (!ready) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
-      <div style={{ fontSize: 13, color: '#9CA3AF' }}>Memuat…</div>
-    </div>
-  )
+  if (!ready) return <BrandLoader full />
 
   const userInitial = (displayName || userEmail || '?')[0].toUpperCase()
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#fff' }}>
-      {/* SIDEBAR */}
-      <aside style={{
-        width: 216, background: '#FAFAFA',
-        borderRight: '1px solid #E5E5E5',
-        display: 'flex', flexDirection: 'column',
-        flexShrink: 0, position: 'sticky', top: 0, height: '100vh',
-      }}>
+    <>
+      {/* TOPBAR — hanya tampil di mobile (lihat .app-topbar di globals.css) */}
+      <header className="app-topbar">
+        <button onClick={() => setMobileNav(true)} aria-label="Buka menu" style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: 6, marginLeft: -6, display: 'flex', color: '#0D0D0D',
+        }}>
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 6.5h14M4 11h14M4 15.5h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+        </button>
+        {tenantLogo ? (
+          <img src={tenantLogo} alt="" width={22} height={22} style={{ borderRadius: 5, objectFit: 'cover' }} />
+        ) : (
+          <div style={{ width: 22, height: 22, borderRadius: 5, background: '#16A34A', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11 }}>{(tenantName || 'W')[0].toUpperCase()}</div>
+        )}
+        <span style={{ fontWeight: 700, fontSize: 14, color: '#0D0D0D', letterSpacing: '-0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tenantName}</span>
+      </header>
+
+      {/* BACKDROP drawer */}
+      <div className={`app-backdrop${mobileNav ? ' open' : ''}`} onClick={() => setMobileNav(false)} />
+
+      <div className="app-shell">
+        {/* SIDEBAR / DRAWER */}
+        <aside className={`app-sidebar${mobileNav ? ' open' : ''}`} style={{
+          width: 216, background: '#FAFAFA',
+          borderRight: '1px solid #E5E5E5',
+          display: 'flex', flexDirection: 'column',
+          flexShrink: 0,
+        }}>
         {/* Workspace header + switcher */}
         <div style={{ padding: '12px 12px', borderBottom: '1px solid #E5E5E5', position: 'relative' }} ref={wsMenuRef}>
           <button onClick={() => setShowWsMenu(v => !v)} style={{
@@ -159,7 +179,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {NAV.map(n => {
             const active = pathname === n.href || (n.href === '/settings' && pathname.startsWith('/settings'))
             return (
-              <Link key={n.href} href={n.href} style={{
+              <Link key={n.href} href={n.href} onClick={() => setMobileNav(false)} style={{
                 display: 'flex', alignItems: 'center', gap: 9,
                 padding: '7px 10px', borderRadius: 6, fontSize: 13,
                 textDecoration: 'none', marginBottom: 1,
@@ -228,8 +248,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main style={{ flex: 1, minWidth: 0 }}>{children}</main>
-    </div>
+      <main className="app-main">{children}</main>
+      </div>
+    </>
   )
 }
 

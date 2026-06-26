@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { authFetch } from '@/lib/client-fetch'
+import { BrandLoader } from '@/app/Loader'
 
 type Tpl = { id?: string; name: string; status: string; language: string; category: string; components: any[] }
 type Btn = { type: 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER'; text: string; url?: string; phone?: string }
@@ -37,6 +38,8 @@ export default function TemplatesPage() {
   const [footerText, setFooterText] = useState('')
   const [examples, setExamples] = useState<string[]>([])
   const [buttons, setButtons] = useState<Btn[]>([])
+  const [codeExpiry, setCodeExpiry] = useState('10')   // menit (AUTHENTICATION)
+  const [otpText, setOtpText] = useState('Salin Kode')  // teks tombol OTP
   const [busy, setBusy] = useState(false)
   const [okMsg, setOkMsg] = useState('')
   const [syncing, setSyncing] = useState(false)
@@ -104,6 +107,9 @@ export default function TemplatesPage() {
           header_text: headerText || undefined,
           footer_text: footerText || undefined,
           buttons: buttons.length ? buttons : undefined,
+          // AUTHENTICATION
+          code_expiration_minutes: category === 'AUTHENTICATION' ? (parseInt(codeExpiry, 10) || 0) : undefined,
+          otp_button_text: category === 'AUTHENTICATION' ? otpText : undefined,
         }),
       })
       const j = await res.json()
@@ -124,10 +130,11 @@ export default function TemplatesPage() {
   }
 
   const nameValid = /^[a-z0-9_]+$/.test(name) && name.length > 0
-  const canSubmit = nameValid && bodyText.trim().length > 0 && !busy
+  const isAuth = category === 'AUTHENTICATION'
+  const canSubmit = nameValid && (isAuth || bodyText.trim().length > 0) && !busy
 
   return (
-    <div style={{ padding: '32px 36px', maxWidth: 760 }}>
+    <div className="page-wrap" style={{ maxWidth: 760 }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: '#0D0D0D', letterSpacing: '-0.02em', marginBottom: 3 }}>Template WhatsApp</h1>
         <p style={{ fontSize: 13, color: '#6B7280' }}>Ajukan template langsung dari sini — tanpa buka Meta Business Manager. Meta review otomatis.</p>
@@ -152,7 +159,7 @@ export default function TemplatesPage() {
 
       {tab === 'list' ? (
         loading ? (
-          <div style={{ fontSize: 13, color: '#9CA3AF', padding: 20 }}>Memuat template…</div>
+          <BrandLoader label="Memuat template…" />
         ) : templates.length === 0 ? (
           <div style={{ padding: '40px 16px', textAlign: 'center', fontSize: 13, color: '#9CA3AF', background: '#FAFAFA', borderRadius: 10, border: '1px solid #F0F0F0' }}>
             Belum ada template. Klik <b>+ Buat baru</b> untuk mengajukan.
@@ -182,7 +189,7 @@ export default function TemplatesPage() {
       ) : (
         // CREATE FORM
         <div style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 10, padding: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div className="grid-2" style={{ marginBottom: 14 }}>
             <div>
               <label style={lbl}>Nama template</label>
               <input value={name} onChange={e => setName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'))}
@@ -201,10 +208,10 @@ export default function TemplatesPage() {
 
           <div style={{ marginBottom: 14 }}>
             <label style={lbl}>Kategori</label>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {CATS.map(c => (
                 <div key={c.id} onClick={() => setCategory(c.id)}
-                  style={{ flex: 1, padding: '10px 12px', border: `1px solid ${category === c.id ? '#16A34A' : '#E5E5E5'}`, borderRadius: 8, cursor: 'pointer', background: category === c.id ? '#F0FDF4' : '#fff' }}>
+                  style={{ flex: '1 1 150px', minWidth: 150, padding: '10px 12px', border: `1px solid ${category === c.id ? '#16A34A' : '#E5E5E5'}`, borderRadius: 8, cursor: 'pointer', background: category === c.id ? '#F0FDF4' : '#fff' }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: '#0D0D0D' }}>{c.label}</div>
                   <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>{c.desc}</div>
                 </div>
@@ -212,6 +219,26 @@ export default function TemplatesPage() {
             </div>
           </div>
 
+          {isAuth && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ padding: '10px 12px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, fontSize: 12, color: '#92400E', marginBottom: 12, lineHeight: 1.55 }}>
+                Template OTP punya format baku dari Meta. Isi pesannya otomatis: <b>"{'{{1}}'} adalah kode verifikasi Anda."</b> — header, body, footer & tombol custom tidak dipakai. Cukup atur masa berlaku & teks tombol di bawah.
+              </div>
+              <div className="grid-2">
+                <div>
+                  <label style={lbl}>Masa berlaku kode (menit)</label>
+                  <input type="number" min={0} max={90} value={codeExpiry} onChange={e => setCodeExpiry(e.target.value)} placeholder="10" style={inp} />
+                  <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>0 = tanpa info kadaluarsa. Maks 90.</div>
+                </div>
+                <div>
+                  <label style={lbl}>Teks tombol salin</label>
+                  <input value={otpText} onChange={e => setOtpText(e.target.value)} placeholder="Salin Kode" style={inp} maxLength={25} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!isAuth && (<>
           <div style={{ marginBottom: 14 }}>
             <label style={lbl}>Header (opsional, teks)</label>
             <input value={headerText} onChange={e => setHeaderText(e.target.value)} placeholder="Judul singkat di atas pesan" style={inp} maxLength={60} />
@@ -272,6 +299,7 @@ export default function TemplatesPage() {
               ))}
             </div>
           </div>
+          </>)}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F0F0F0', paddingTop: 16 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -289,11 +317,15 @@ export default function TemplatesPage() {
       )}
       {showPreview && tab === 'create' && (
         <WaPreview
-          header={headerText}
-          body={bodyText}
-          footer={footerText}
-          buttons={buttons}
-          examples={examples}
+          header={isAuth ? '' : headerText}
+          body={isAuth
+            ? '{{1}} adalah kode verifikasi Anda. Demi keamanan, jangan bagikan kode ini kepada siapa pun.'
+            : bodyText}
+          footer={isAuth
+            ? ((parseInt(codeExpiry, 10) || 0) > 0 ? `Kode berlaku selama ${parseInt(codeExpiry, 10)} menit.` : '')
+            : footerText}
+          buttons={isAuth ? [{ type: 'QUICK_REPLY', text: otpText || 'Salin Kode' }] : buttons}
+          examples={isAuth ? ['123456'] : examples}
         />
       )}
     </div>

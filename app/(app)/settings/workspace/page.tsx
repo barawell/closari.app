@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { authFetch } from '@/lib/client-fetch'
 import { supabase } from '@/lib/supabase'
+import { BrandLoader } from '@/app/Loader'
 
 export default function WorkspacePage() {
   const [loaded, setLoaded] = useState(false)
@@ -82,7 +83,7 @@ export default function WorkspacePage() {
     } finally { setUploadingLogo(false) }
   }
 
-  if (!loaded) return <div style={{ fontSize: 13, color: '#9CA3AF' }}>Memuat…</div>
+  if (!loaded) return <BrandLoader full />
 
   const isAdmin = role === 'admin'
 
