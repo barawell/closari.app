@@ -1,14 +1,20 @@
 'use client'
 import { useEffect } from 'react'
 
-// Daftarkan service worker buat PWA (installable + fallback offline ikon).
+// Bersihkan service worker & cache lama (PWA dimatikan sementara biar gak nyajiin versi basi).
 export default function SWRegister() {
   useEffect(() => {
-    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
-    const onLoad = () => { navigator.serviceWorker.register('/sw.js').catch(() => {}) }
-    if (document.readyState === 'complete') onLoad()
-    else window.addEventListener('load', onLoad)
-    return () => window.removeEventListener('load', onLoad)
+    if (typeof navigator === 'undefined') return
+    try {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations()
+          .then((regs) => regs.forEach((r) => r.unregister()))
+          .catch(() => {})
+      }
+      if (typeof caches !== 'undefined') {
+        caches.keys().then((keys) => keys.forEach((k) => caches.delete(k))).catch(() => {})
+      }
+    } catch {}
   }, [])
   return null
 }
