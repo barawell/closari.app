@@ -112,7 +112,7 @@ export default function HaloAiPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#fff' }}>
       {/* HEADER */}
-      <div style={{ padding: '20px 32px', borderBottom: '1px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ padding: 'clamp(14px,4vw,20px) clamp(16px,5vw,32px)', borderBottom: '1px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <svg width="16" height="16" viewBox="0 0 12 12" fill="none"><path d="M6 1L7.5 4.5L11 6L7.5 7.5L6 11L4.5 7.5L1 6L4.5 4.5L6 1Z" fill="#16A34A"/></svg>
@@ -166,7 +166,7 @@ export default function HaloAiPage() {
       </div>
 
       {/* CONTENT */}
-      <div style={{ padding: '24px 32px', maxWidth: 900 }}>
+      <div style={{ padding: 'clamp(16px,5vw,24px) clamp(16px,5vw,32px)', maxWidth: 900 }}>
         {tab === 'knowledge' && (
           <>
             <div style={{ marginBottom: 20, padding: '12px 14px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8 }}>

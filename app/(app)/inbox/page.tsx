@@ -111,6 +111,7 @@ export default function InboxPage() {
   const [soundOn, setSoundOn] = useState(true)
   const [sendingMedia, setSendingMedia] = useState(false)
   const [tenantId, setTenantId] = useState<string | null>(null)
+  const [showInfoMobile, setShowInfoMobile] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const endRef = useRef<HTMLDivElement>(null)
@@ -330,9 +331,9 @@ export default function InboxPage() {
   const filteredQR = text.startsWith('/') ? quickReplies.filter(q => q.shortcut.startsWith(text.slice(1).toLowerCase())) : quickReplies
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#fff' }}>
+    <div className={`inbox-shell${active ? ' has-active' : ''}${showInfoMobile ? ' show-info' : ''}`} style={{ display: 'flex', height: '100vh', background: '#fff' }}>
       {/* LEFT: CONVERSATION LIST */}
-      <div style={{ width: 280, borderRight: '1px solid #E5E5E5', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+      <div className="inbox-list" style={{ width: 280, borderRight: '1px solid #E5E5E5', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid #F0F0F0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div>
@@ -371,7 +372,7 @@ export default function InboxPage() {
             const badge = unread[c.id] || 0
             const tags = ct.tags || []
             return (
-              <div key={c.id} onClick={() => setActive(c)} style={{ padding: '10px 14px', borderBottom: '1px solid #F7F7F7', cursor: 'pointer', background: isActive ? '#F0FDF4' : '#fff', borderLeft: `2px solid ${isActive ? '#16A34A' : 'transparent'}` }}>
+              <div key={c.id} onClick={() => { setActive(c); setShowInfoMobile(false) }} style={{ padding: '10px 14px', borderBottom: '1px solid #F7F7F7', cursor: 'pointer', background: isActive ? '#F0FDF4' : '#fff', borderLeft: `2px solid ${isActive ? '#16A34A' : 'transparent'}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
                   <div style={{ fontWeight: badge > 0 ? 600 : 500, fontSize: 13, color: '#0D0D0D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ct.name || ct.phone}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
@@ -399,7 +400,7 @@ export default function InboxPage() {
       </div>
 
       {/* MIDDLE: CHAT */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid #E5E5E5' }}>
+      <div className="inbox-chat" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid #E5E5E5' }}>
         {!active ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ fontSize: 13, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.7 }}>Pilih percakapan<br />untuk mulai membalas</div>
@@ -407,11 +408,17 @@ export default function InboxPage() {
         ) : (
           <>
             <div style={{ padding: '12px 16px', borderBottom: '1px solid #E5E5E5', display: 'flex', alignItems: 'center', gap: 10, background: '#fff' }}>
+              <button onClick={() => setActive(null)} className="inbox-mobile-only" aria-label="Kembali" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, marginLeft: -4, color: '#0D0D0D' }}>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 5L7.5 10l5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
               <Avatar name={contactOf(active).name || contactOf(active).phone} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 500, fontSize: 14, color: '#0D0D0D' }}>{contactOf(active).name || contactOf(active).phone}</div>
                 <div style={{ fontSize: 12, color: '#9CA3AF' }}>{contactOf(active).phone}</div>
               </div>
+              <button onClick={() => setShowInfoMobile(true)} className="inbox-mobile-only" aria-label="Info kontak" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#6B7280' }}>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5"/><path d="M10 9v4M10 6.5v.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+              </button>
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 8, background: '#FAFAFA' }}>
@@ -500,7 +507,11 @@ export default function InboxPage() {
       </div>
 
       {/* RIGHT: CRM PANEL */}
-      <div style={{ width: 300, background: '#fff', flexShrink: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div className="inbox-right" style={{ width: 300, background: '#fff', flexShrink: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <button onClick={() => setShowInfoMobile(false)} className="inbox-mobile-only" style={{ alignItems: 'center', gap: 6, background: 'none', border: 'none', borderBottom: '1px solid #E5E5E5', cursor: 'pointer', padding: '10px 14px', color: '#6B7280', fontSize: 13, fontFamily: 'inherit' }}>
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M12.5 5L7.5 10l5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          Kembali ke chat
+        </button>
         {!active ? (
           <div style={{ padding: '32px 16px', fontSize: 13, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.6 }}>
             Pilih percakapan untuk melihat detail kontak.

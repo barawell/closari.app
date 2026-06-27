@@ -87,7 +87,7 @@ export default function FollowUpPage() {
   }
 
   return (
-    <div style={{ padding: '32px 36px', maxWidth: 820 }}>
+    <div style={{ padding: 'clamp(18px,5vw,32px) clamp(14px,5vw,36px)', maxWidth: 820 }}>
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: '#0D0D0D', letterSpacing: '-0.02em', marginBottom: 3 }}>Follow Up Customer</h1>
         <p style={{ fontSize: 13, color: '#6B7280' }}>Customer yang sudah di-approach otomatis jadi "Terkontak" dan hilang dari daftar ini biar tidak dobel.</p>

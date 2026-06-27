@@ -121,14 +121,14 @@ export default function KontakPage() {
   }
 
   return (
-    <div style={{ padding: '32px 36px', maxWidth: 880 }}>
+    <div style={{ padding: 'clamp(18px,5vw,32px) clamp(14px,5vw,36px)', maxWidth: 880 }}>
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: '#0D0D0D', letterSpacing: '-0.02em', marginBottom: 3 }}>Kontak</h1>
         <p style={{ fontSize: 13, color: '#6B7280' }}>Kelola daftar kontak & import massal dari CSV/Excel untuk broadcast.</p>
       </div>
 
       {/* stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 18 }}>
+      <div className="cards-auto" style={{ gap: 12, marginBottom: 18 }}>
         <Stat label="Total kontak" value={stats.total} />
         <Stat label="Loyal" value={stats.loyal} accent />
         <Stat label="Opt-out" value={stats.optout} danger />
@@ -172,7 +172,7 @@ export default function KontakPage() {
           <>
             <div style={{ display: 'flex', padding: '10px 16px', borderBottom: '1px solid #F0F0F0', fontSize: 11, fontWeight: 600, color: '#9CA3AF', letterSpacing: '0.03em' }}>
               <div style={{ flex: 1 }}>NAMA</div>
-              <div style={{ width: 160 }}>NOMOR</div>
+              <div className="hide-mobile" style={{ width: 160 }}>NOMOR</div>
               <div style={{ width: 70 }}>SEGMEN</div>
               <div style={{ width: 90, textAlign: 'right' }}>STATUS</div>
             </div>
@@ -180,7 +180,7 @@ export default function KontakPage() {
               {filtered.map(c => (
                 <div key={c.id} style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', borderBottom: '1px solid #F7F7F7' }}>
                   <div style={{ flex: 1, fontSize: 13, color: '#0D0D0D' }}>{c.name || <span style={{ color: '#9CA3AF' }}>—</span>}</div>
-                  <div style={{ width: 160, fontSize: 13, color: '#6B7280' }}>{c.phone}</div>
+                  <div className="hide-mobile" style={{ width: 160, fontSize: 13, color: '#6B7280' }}>{c.phone}</div>
                   <div style={{ width: 70 }}>
                     <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 999, color: c.segment === 'loyal' ? '#15803D' : '#6D28D9', background: c.segment === 'loyal' ? '#F0FDF4' : '#F5F3FF', border: `1px solid ${c.segment === 'loyal' ? '#BBF7D0' : '#DDD6FE'}` }}>{c.segment === 'loyal' ? 'Loyal' : 'New'}</span>
                   </div>

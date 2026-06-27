@@ -118,3 +118,23 @@ body { min-height: 100vh; min-height: 100dvh; }
   .lp-features { grid-template-columns: 1fr; }
   .lp-nav-secondary { display: none; }
 }
+
+/* ── App mobile-friendly helpers ─────────────────────────── */
+.cards-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.inbox-mobile-only { display: none; }
+
+@media (max-width: 768px) {
+  .login-grid { grid-template-columns: 1fr !important; }
+  .login-aside { display: none !important; }
+
+  .inbox-shell { height: calc(100dvh - 52px) !important; }
+  .inbox-list, .inbox-chat, .inbox-right { width: 100% !important; flex: 1 1 auto !important; border-right: none !important; min-width: 0; }
+  .inbox-chat, .inbox-right { display: none !important; }
+  .inbox-shell.has-active .inbox-list { display: none !important; }
+  .inbox-shell.has-active .inbox-chat { display: flex !important; }
+  .inbox-shell.has-active.show-info .inbox-chat { display: none !important; }
+  .inbox-shell.has-active.show-info .inbox-right { display: flex !important; }
+  .inbox-mobile-only { display: flex !important; }
+
+  .hide-mobile { display: none !important; }
+}

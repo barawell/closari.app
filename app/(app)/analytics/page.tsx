@@ -49,7 +49,7 @@ export default function AnalyticsPage() {
   if (loading) return <div style={{ padding: 40, fontSize: 13, color: '#9CA3AF' }}>Memuat analytics…</div>
 
   return (
-    <div style={{ padding: '32px 36px', maxWidth: 900 }}>
+    <div style={{ padding: 'clamp(18px,5vw,32px) clamp(14px,5vw,36px)', maxWidth: 900 }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: '#0D0D0D', letterSpacing: '-0.02em', marginBottom: 3 }}>Analytics</h1>
         <p style={{ fontSize: 13, color: '#6B7280' }}>Performa pesan, broadcast, dan kesehatan sistem — 7 & 30 hari terakhir.</p>
@@ -73,7 +73,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Stats cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 24 }}>
+      <div className="cards-auto" style={{ gap: 12, marginBottom: 24 }}>
         <StatCard label="Total kontak" value={contacts.total} sub={`+${contacts.new7d} minggu ini`} />
         <StatCard label="Broadcast dikirim (30hr)" value={delivery.totalSent} sub={`${delivery.failed} gagal`} danger={delivery.failed > 0} />
         <StatCard label="Delivery rate" value={`${delivery.deliveryRate}%`} sub="dari pesan terkirim" accent />
@@ -112,7 +112,7 @@ export default function AnalyticsPage() {
       {/* Delivery breakdown */}
       <div style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 12, padding: '18px 20px', marginBottom: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#0D0D0D', marginBottom: 14 }}>Delivery breakdown — 30 hari</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+        <div className="cards-auto" style={{ gap: 10 }}>
           {[
             { label: 'Terkirim', value: delivery.sent, color: '#6B7280' },
             { label: 'Delivered', value: delivery.delivered, color: '#3B82F6' },

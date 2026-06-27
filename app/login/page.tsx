@@ -84,7 +84,7 @@ function LoginInner() {
   )
 
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+    <div className="login-grid" style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '48px 40px', background: '#fff' }}>
         <div style={{ width: '100%', maxWidth: 360 }}>
           <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 7, marginBottom: 48 }}>
@@ -154,7 +154,7 @@ function LoginInner() {
         </div>
       </div>
 
-      <div style={{ background: '#F7F7F7', borderLeft: '1px solid #E5E5E5', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '48px 48px' }}>
+      <div className="login-aside" style={{ background: '#F7F7F7', borderLeft: '1px solid #E5E5E5', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '48px 48px' }}>
         <div style={{ maxWidth: 340 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: '#16A34A', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 20 }}>Mengapa Closari</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

@@ -66,7 +66,7 @@ export default function MembersPage() {
   }
 
   return (
-    <div style={{ padding: '32px 36px', maxWidth: 720 }}>
+    <div style={{ padding: 'clamp(18px,5vw,32px) clamp(14px,5vw,36px)', maxWidth: 720 }}>
       <div style={{ marginBottom: 22 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: '#0D0D0D', letterSpacing: '-0.02em', marginBottom: 3 }}>Anggota Tim</h1>
         <p style={{ fontSize: 13, color: '#6B7280' }}>Undang anggota & atur peran. Admin bisa kelola broadcast & setelan; agent hanya balas chat.</p>
