@@ -112,11 +112,15 @@ export default function InboxPage() {
   const [sendingMedia, setSendingMedia] = useState(false)
   const [tenantId, setTenantId] = useState<string | null>(null)
   const [showInfoMobile, setShowInfoMobile] = useState(false)
+  const [readMap, setReadMap] = useState<Record<string, number>>({})
+  const seededRef = useRef(false)
+  const tenantIdRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const endRef = useRef<HTMLDivElement>(null)
   const activeRef = useRef<Conv | null>(null)
   activeRef.current = active
+  tenantIdRef.current = tenantId
   const soundRef = useRef(true)
   soundRef.current = soundOn
 
@@ -145,6 +149,30 @@ export default function InboxPage() {
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
     setUnread(prev => ({ ...prev, [id]: 0 }))
   }, [])
+
+  // Tandai percakapan sudah dibaca, disimpan ke localStorage per workspace (persist saat reload).
+  const markRead = useCallback((convId: string) => {
+    setReadMap(prev => {
+      const next = { ...prev, [convId]: Date.now() }
+      try { localStorage.setItem('closari_inbox_read_' + (tenantIdRef.current || 'x'), JSON.stringify(next)) } catch {}
+      return next
+    })
+  }, [])
+
+  // Muat status baca tersimpan; pertama kali pakai: anggap semua percakapan saat ini sudah dibaca.
+  useEffect(() => {
+    if (!tenantId || seededRef.current || convs.length === 0) return
+    seededRef.current = true
+    try {
+      const key = 'closari_inbox_read_' + tenantId
+      const raw = localStorage.getItem(key)
+      if (raw) { setReadMap(JSON.parse(raw)); return }
+      const seed: Record<string, number> = {}
+      for (const c of convs) seed[c.id] = c.last_message_at ? new Date(c.last_message_at).getTime() : Date.now()
+      localStorage.setItem(key, JSON.stringify(seed))
+      setReadMap(seed)
+    } catch {}
+  }, [tenantId, convs])
 
   async function loadContactDetail(contactId: string) {
     if (!contactId) return
@@ -200,6 +228,7 @@ export default function InboxPage() {
             playNotifSound()
           }
           if (activeRef.current?.id === convId) {
+            markRead(convId)
             setMsgs(prev => {
               if (prev.find(m => m.id === newMsg.id)) return prev
               // Ganti bubble optimistic (opt-) dgn pesan asli dari DB biar tidak dobel
@@ -225,9 +254,16 @@ export default function InboxPage() {
     return () => { supabase.removeChannel(channel) }
   }, [loadConvs, tenantId])
 
+  // Jaring pengaman: refresh daftar tiap 15 detik agar pesan baru tetap ke-tandai walau realtime telat/mati.
+  useEffect(() => {
+    const iv = setInterval(() => { loadConvs() }, 15000)
+    return () => clearInterval(iv)
+  }, [loadConvs])
+
   useEffect(() => {
     if (active) {
       loadMsgs(active.id)
+      markRead(active.id)
       const ct = contactOf(active)
       if (ct.id) loadContactDetail(ct.id)
       setRightTab('contact')
@@ -370,16 +406,21 @@ export default function InboxPage() {
             const ct = contactOf(c)
             const isActive = active?.id === c.id
             const badge = unread[c.id] || 0
+            const lastMs = c.last_message_at ? new Date(c.last_message_at).getTime() : 0
+            const isUnread = !isActive && (badge > 0 || lastMs > (readMap[c.id] || 0))
             const tags = ct.tags || []
             return (
-              <div key={c.id} onClick={() => { setActive(c); setShowInfoMobile(false) }} style={{ padding: '10px 14px', borderBottom: '1px solid #F7F7F7', cursor: 'pointer', background: isActive ? '#F0FDF4' : '#fff', borderLeft: `2px solid ${isActive ? '#16A34A' : 'transparent'}` }}>
+              <div key={c.id} onClick={() => { setActive(c); setShowInfoMobile(false) }} style={{ padding: '10px 14px', borderBottom: '1px solid #F7F7F7', cursor: 'pointer', background: isActive ? '#F0FDF4' : isUnread ? '#F4FDF8' : '#fff', borderLeft: `2px solid ${isActive || isUnread ? '#16A34A' : 'transparent'}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                  <div style={{ fontWeight: badge > 0 ? 600 : 500, fontSize: 13, color: '#0D0D0D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ct.name || ct.phone}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                    {isUnread && <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#16A34A', flexShrink: 0 }} />}
+                    <div style={{ fontWeight: isUnread ? 700 : 500, fontSize: 13, color: '#0D0D0D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ct.name || ct.phone}</div>
+                  </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                     {badge > 0 && (
                       <span style={{ background: '#16A34A', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 999, minWidth: 16, textAlign: 'center' }}>{badge}</span>
                     )}
-                    <span style={{ fontSize: 11, color: '#9CA3AF' }}>{c.last_message_at ? timeAgo(c.last_message_at) : ''}</span>
+                    <span style={{ fontSize: 11, fontWeight: isUnread ? 600 : 400, color: isUnread ? '#16A34A' : '#9CA3AF' }}>{c.last_message_at ? timeAgo(c.last_message_at) : ''}</span>
                   </div>
                 </div>
                 <div style={{ fontSize: 12, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 4 }}>
