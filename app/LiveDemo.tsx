@@ -32,6 +32,7 @@ function now() { return new Date().toLocaleTimeString('id-ID', { hour: '2-digit'
 
 export default function LiveDemo() {
   const [activePerson, setActivePerson] = useState(0)
+  const [isMobile, setIsMobile] = useState(false)
   const [messages, setMessages] = useState<Record<number, DemoMsg[]>>({
     0: [
       { id: 1, from: 'user', text: 'Halo, mau tanya soal Closari dong', time: '10:23' },
@@ -47,6 +48,14 @@ export default function LiveDemo() {
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   const currentMsgs = messages[activePerson] || []
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
 
   useEffect(() => {
     const el = messagesContainerRef.current
@@ -80,93 +89,132 @@ export default function LiveDemo() {
     setCopilot(null)
   }
 
+  // ── Pemilih percakapan untuk MOBILE (pill horizontal) ──
+  const personaPills = (
+    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '12px', borderBottom: '1px solid #F0F0F0', background: '#FAFAFA', WebkitOverflowScrolling: 'touch' }}>
+      {PERSONAS.map((p, i) => (
+        <button key={i} onClick={() => setActivePerson(i)} style={{
+          display: 'flex', alignItems: 'center', gap: 7, padding: '5px 12px 5px 6px', borderRadius: 999,
+          border: `1px solid ${activePerson === i ? '#16A34A' : '#E5E5E5'}`,
+          background: activePerson === i ? '#F0FDF4' : '#fff', cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit',
+        }}>
+          <span style={{ width: 26, height: 26, borderRadius: '50%', background: '#fff', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, border: '1px solid #BBF7D0', flexShrink: 0 }}>{p.avatar}</span>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: '#0D0D0D', whiteSpace: 'nowrap' }}>{p.name.split(' ')[0]}</span>
+          {p.unread > 0 && <span style={{ background: '#16A34A', color: '#fff', fontSize: 9, fontWeight: 700, padding: '0 5px', borderRadius: 999, lineHeight: '15px' }}>{p.unread}</span>}
+        </button>
+      ))}
+    </div>
+  )
+
+  // ── Daftar percakapan untuk DESKTOP (sidebar) ──
+  const conversationList = (
+    <div style={{ borderRight: '1px solid #F0F0F0', display: 'flex', flexDirection: 'column', background: '#FAFAFA' }}>
+      <div style={{ padding: '12px 14px', borderBottom: '1px solid #F0F0F0' }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#0D0D0D' }}>Percakapan</div>
+        <div style={{ fontSize: 10, color: '#16A34A', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} /> Realtime aktif
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {PERSONAS.map((p, i) => (
+          <div key={i} onClick={() => setActivePerson(i)} style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #F4F4F4', background: activePerson === i ? '#fff' : 'transparent', borderLeft: `2px solid ${activePerson === i ? '#16A34A' : 'transparent'}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#F0FDF4', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, border: '1px solid #BBF7D0', flexShrink: 0 }}>{p.avatar}</div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#0D0D0D', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                <div style={{ fontSize: 10, color: '#9CA3AF' }}>{p.phone}</div>
+              </div>
+              {p.unread > 0 && <span style={{ background: '#16A34A', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 999, flexShrink: 0 }}>{p.unread}</span>}
+            </div>
+            <span style={{ fontSize: 9, padding: '1px 6px', background: '#F0FDF4', color: '#15803D', borderRadius: 3, border: '1px solid #BBF7D0', fontWeight: 600, marginTop: 6, display: 'inline-block', marginLeft: 38 }}>{p.tag}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  // ── Panel chat (dipakai desktop & mobile) ──
+  const chatPanel = (
+    <div style={{ display: 'flex', flexDirection: 'column', borderRight: isMobile ? 'none' : '1px solid #F0F0F0', minWidth: 0 }}>
+      <div style={{ padding: '10px 16px', borderBottom: '1px solid #F0F0F0', display: 'flex', alignItems: 'center', gap: 9 }}>
+        <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#F0FDF4', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, border: '1px solid #BBF7D0', flexShrink: 0 }}>{PERSONAS[activePerson].avatar}</div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#0D0D0D' }}>{PERSONAS[activePerson].name}</div>
+          <div style={{ fontSize: 10, color: '#9CA3AF' }}>{PERSONAS[activePerson].phone}</div>
+        </div>
+      </div>
+      <div ref={messagesContainerRef} style={{ ...(isMobile ? { height: 260 } : { flex: 1 }), overflowY: 'auto', padding: 14, background: '#FAFAFA', display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {currentMsgs.map(m => (
+          <div key={m.id} style={{ display: 'flex', justifyContent: m.from === 'user' ? 'flex-start' : 'flex-end' }}>
+            <div style={{ maxWidth: '82%', padding: '8px 11px', borderRadius: 9, fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+              background: m.from === 'user' ? '#fff' : m.from === 'ai' ? '#F0FDF4' : '#0D0D0D',
+              color: m.from === 'user' ? '#0D0D0D' : m.from === 'ai' ? '#14532D' : '#fff',
+              border: m.from === 'user' ? '1px solid #E5E5E5' : m.from === 'ai' ? '1px solid #BBF7D0' : 'none' }}>
+              {m.from === 'ai' && (
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#16A34A', marginBottom: 2, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <svg width="8" height="8" viewBox="0 0 12 12" fill="none"><path d="M6 1L7.5 4.5L11 6L7.5 7.5L6 11L4.5 7.5L1 6L4.5 4.5L6 1Z" fill="#16A34A"/></svg>
+                  AIRA AI
+                </div>
+              )}
+              {m.text}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ padding: '10px 12px', borderTop: '1px solid #F0F0F0', display: 'flex', gap: 7, background: '#fff' }}>
+        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendUser()}
+          placeholder="Ketik sebagai customer…"
+          style={{ flex: 1, minWidth: 0, padding: '9px 11px', border: '1px solid #E5E5E5', borderRadius: 7, fontSize: 13, outline: 'none', fontFamily: 'inherit', background: '#F7F7F7', color: '#0D0D0D' }} />
+        <button onClick={sendUser} style={{ padding: '9px 16px', background: '#0D0D0D', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Kirim</button>
+      </div>
+    </div>
+  )
+
+  // ── Panel Aira AI copilot (dipakai desktop & mobile) ──
+  const copilotPanel = (
+    <div style={{ display: 'flex', flexDirection: 'column', background: '#fff', minHeight: isMobile ? 150 : undefined }}>
+      <div style={{ padding: '12px 14px', borderBottom: '1px solid #F0F0F0', display: 'flex', alignItems: 'center', gap: 6, background: isMobile ? '#F0FDF4' : '#fff' }}>
+        <svg width="13" height="13" viewBox="0 0 12 12" fill="none"><path d="M6 1L7.5 4.5L11 6L7.5 7.5L6 11L4.5 7.5L1 6L4.5 4.5L6 1Z" fill="#16A34A"/></svg>
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#0D0D0D' }}>Aira AI Copilot</span>
+      </div>
+      <div style={{ flex: 1, padding: 14, overflowY: 'auto' }}>
+        {copilotLoading ? (
+          <div style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center', padding: '30px 0' }}>
+            <div style={{ marginBottom: 8 }}>Aira membaca percakapan…</div>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ margin: '0 auto', display: 'block' }}><circle cx="10" cy="10" r="7" stroke="#E5E5E5" strokeWidth="2.5"/><path d="M10 3a7 7 0 017 7" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round"><animateTransform attributeName="transform" type="rotate" from="0 10 10" to="360 10 10" dur="0.8s" repeatCount="indefinite"/></path></svg>
+          </div>
+        ) : copilot ? (
+          <>
+            <div style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.08em', marginBottom: 5 }}>MAKSUD CUSTOMER</div>
+            <div style={{ fontSize: 11.5, color: '#374151', background: '#F7F7F7', border: '1px solid #E5E5E5', borderRadius: 6, padding: '7px 9px', lineHeight: 1.5, marginBottom: 14 }}>{copilot.intent}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.08em', marginBottom: 5 }}>SARAN BALASAN</div>
+            <div style={{ fontSize: 11.5, color: '#14532D', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 6, padding: '7px 9px', lineHeight: 1.55, marginBottom: 9 }}>{copilot.suggestion}</div>
+            <button onClick={useSuggestion} style={{ width: '100%', padding: '8px 0', background: '#0D0D0D', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 500, cursor: 'pointer', fontSize: 11.5, fontFamily: 'inherit' }}>Pakai saran ini →</button>
+          </>
+        ) : (
+          <div style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center', padding: '24px 8px', lineHeight: 1.6 }}>Kirim pesan sebagai customer — Aira akan langsung baca konteks & sarankan balasan terbaik.</div>
+        )}
+      </div>
+    </div>
+  )
+
+  // ── MOBILE: tumpuk vertikal (pill → chat → copilot) ──
+  if (isMobile) {
+    return (
+      <div style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.06)', maxWidth: 480, margin: '0 auto' }}>
+        {personaPills}
+        {chatPanel}
+        <div style={{ borderTop: '1px solid #F0F0F0' }}>{copilotPanel}</div>
+      </div>
+    )
+  }
+
+  // ── DESKTOP: 3 kolom ──
   return (
     <div style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.06)', display: 'grid', gridTemplateColumns: '210px 1fr 260px', height: 460, maxWidth: 980, margin: '0 auto' }}>
-      {/* LEFT: list */}
-      <div style={{ borderRight: '1px solid #F0F0F0', display: 'flex', flexDirection: 'column', background: '#FAFAFA' }}>
-        <div style={{ padding: '12px 14px', borderBottom: '1px solid #F0F0F0' }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#0D0D0D' }}>Percakapan</div>
-          <div style={{ fontSize: 10, color: '#16A34A', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} /> Realtime aktif
-          </div>
-        </div>
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          {PERSONAS.map((p, i) => (
-            <div key={i} onClick={() => setActivePerson(i)} style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #F4F4F4', background: activePerson === i ? '#fff' : 'transparent', borderLeft: `2px solid ${activePerson === i ? '#16A34A' : 'transparent'}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#F0FDF4', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, border: '1px solid #BBF7D0', flexShrink: 0 }}>{p.avatar}</div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#0D0D0D', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                  <div style={{ fontSize: 10, color: '#9CA3AF' }}>{p.phone}</div>
-                </div>
-                {p.unread > 0 && <span style={{ background: '#16A34A', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 999, flexShrink: 0 }}>{p.unread}</span>}
-              </div>
-              <span style={{ fontSize: 9, padding: '1px 6px', background: '#F0FDF4', color: '#15803D', borderRadius: 3, border: '1px solid #BBF7D0', fontWeight: 600, marginTop: 6, display: 'inline-block', marginLeft: 38 }}>{p.tag}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* MIDDLE: chat */}
-      <div style={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid #F0F0F0' }}>
-        <div style={{ padding: '10px 16px', borderBottom: '1px solid #F0F0F0', display: 'flex', alignItems: 'center', gap: 9 }}>
-          <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#F0FDF4', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, border: '1px solid #BBF7D0' }}>{PERSONAS[activePerson].avatar}</div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#0D0D0D' }}>{PERSONAS[activePerson].name}</div>
-            <div style={{ fontSize: 10, color: '#9CA3AF' }}>{PERSONAS[activePerson].phone}</div>
-          </div>
-        </div>
-        <div ref={messagesContainerRef} style={{ flex: 1, overflowY: 'auto', padding: 14, background: '#FAFAFA', display: 'flex', flexDirection: 'column', gap: 7 }}>
-          {currentMsgs.map(m => (
-            <div key={m.id} style={{ display: 'flex', justifyContent: m.from === 'user' ? 'flex-start' : 'flex-end' }}>
-              <div style={{ maxWidth: '78%', padding: '8px 11px', borderRadius: 9, fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'pre-wrap',
-                background: m.from === 'user' ? '#fff' : m.from === 'ai' ? '#F0FDF4' : '#0D0D0D',
-                color: m.from === 'user' ? '#0D0D0D' : m.from === 'ai' ? '#14532D' : '#fff',
-                border: m.from === 'user' ? '1px solid #E5E5E5' : m.from === 'ai' ? '1px solid #BBF7D0' : 'none' }}>
-                {m.from === 'ai' && (
-                  <div style={{ fontSize: 9, fontWeight: 700, color: '#16A34A', marginBottom: 2, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <svg width="8" height="8" viewBox="0 0 12 12" fill="none"><path d="M6 1L7.5 4.5L11 6L7.5 7.5L6 11L4.5 7.5L1 6L4.5 4.5L6 1Z" fill="#16A34A"/></svg>
-                    AIRA AI
-                  </div>
-                )}
-                {m.text}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ padding: '10px 12px', borderTop: '1px solid #F0F0F0', display: 'flex', gap: 7, background: '#fff' }}>
-          <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendUser()}
-            placeholder="Ketik sebagai customer… (mis. 'berapa harganya?')"
-            style={{ flex: 1, padding: '8px 11px', border: '1px solid #E5E5E5', borderRadius: 7, fontSize: 12, outline: 'none', fontFamily: 'inherit', background: '#F7F7F7', color: '#0D0D0D' }} />
-          <button onClick={sendUser} style={{ padding: '8px 14px', background: '#0D0D0D', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Kirim</button>
-        </div>
-      </div>
-
-      {/* RIGHT: Aira AI copilot */}
-      <div style={{ display: 'flex', flexDirection: 'column', background: '#fff' }}>
-        <div style={{ padding: '12px 14px', borderBottom: '1px solid #F0F0F0', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <svg width="13" height="13" viewBox="0 0 12 12" fill="none"><path d="M6 1L7.5 4.5L11 6L7.5 7.5L6 11L4.5 7.5L1 6L4.5 4.5L6 1Z" fill="#16A34A"/></svg>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#0D0D0D' }}>Aira AI Copilot</span>
-        </div>
-        <div style={{ flex: 1, padding: 14, overflowY: 'auto' }}>
-          {copilotLoading ? (
-            <div style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center', padding: '30px 0' }}>
-              <div style={{ marginBottom: 8 }}>Aira membaca percakapan…</div>
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ margin: '0 auto', display: 'block' }}><circle cx="10" cy="10" r="7" stroke="#E5E5E5" strokeWidth="2.5"/><path d="M10 3a7 7 0 017 7" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round"><animateTransform attributeName="transform" type="rotate" from="0 10 10" to="360 10 10" dur="0.8s" repeatCount="indefinite"/></path></svg>
-            </div>
-          ) : copilot ? (
-            <>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.08em', marginBottom: 5 }}>MAKSUD CUSTOMER</div>
-              <div style={{ fontSize: 11.5, color: '#374151', background: '#F7F7F7', border: '1px solid #E5E5E5', borderRadius: 6, padding: '7px 9px', lineHeight: 1.5, marginBottom: 14 }}>{copilot.intent}</div>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.08em', marginBottom: 5 }}>SARAN BALASAN</div>
-              <div style={{ fontSize: 11.5, color: '#14532D', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 6, padding: '7px 9px', lineHeight: 1.55, marginBottom: 9 }}>{copilot.suggestion}</div>
-              <button onClick={useSuggestion} style={{ width: '100%', padding: '7px 0', background: '#0D0D0D', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 500, cursor: 'pointer', fontSize: 11.5, fontFamily: 'inherit' }}>Pakai saran ini →</button>
-            </>
-          ) : (
-            <div style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center', padding: '30px 8px', lineHeight: 1.6 }}>Kirim pesan sebagai customer di tengah — Aira akan langsung baca konteks & sarankan balasan terbaik.</div>
-          )}
-        </div>
-      </div>
+      {conversationList}
+      {chatPanel}
+      {copilotPanel}
     </div>
   )
 }
