@@ -5,6 +5,14 @@ import SWRegister from './sw-register'
 export const metadata: Metadata = {
   title: 'Closari — WhatsApp Business + AI untuk Tim',
   description: 'Platform WhatsApp Business multi-tenant dengan AI auto-reply, broadcast, dan inbox terpadu.',
+  icons: {
+    icon: [
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/icon-192.png',
+    shortcut: '/icon-192.png',
+  },
 }
 
 export const viewport: Viewport = {

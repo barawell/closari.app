@@ -7,6 +7,8 @@ type Contact = { id: string; phone: string; name?: string; segment: 'loyal' | 'n
 type Campaign = { id: string; kind: string; body: string; template_name?: string; category?: string; total: number; sent: number; failed: number; status: string; created_at: string; reject_reason?: string | null }
 
 const COST_PER_MSG = 700 // Rp, estimasi tampilan (sesuaikan dgn tarif Meta-mu)
+const WA_BODY_LIMIT = 1024 // batas panjang body template WhatsApp (render setelah variabel diisi)
+const WA_BODY_SAFE = 1000  // ambang aman: kasih headroom sebelum limit keras
 
 function fmtRp(n: number) { return 'Rp ' + n.toLocaleString('id-ID') }
 function fmtDate(s: string) { return new Date(s).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }
@@ -274,8 +276,25 @@ export default function BroadcastPage() {
   // Variabel dianggap "terisi" kalau sumbernya otomatis (nama) ATAU teks manual sudah diisi.
   const varsFilled = varCount === 0 || Array.from({ length: varCount }).every((_, i) =>
     paramSrc[i] === 'nama' || (tplParams[i] || '').trim().length > 0)
-  const canNext1 = mode === 'text' ? text.trim().length >= 10 : (!!tplName && varsFilled)
-  const canSend = recipientCount > 0 && !!waNumberId && !busy
+
+  // ── Pre-flight panjang pesan (cegah #132005 "Translated text too long") ──
+  // Body template lolos review saat placeholder masih pendek ({{2}}, {{7}}, dst),
+  // tapi saat kirim tiap variabel diganti nilai asli (nama produk) yang jauh lebih panjang.
+  // Kalau hasil render > 1024 karakter, Meta nolak SEMUA penerima. Ini ngitung worst-case:
+  //  - slot 'nama'   → nama depan terpanjang di daftar penerima (min 20 char sbg jaga-jaga)
+  //  - slot 'manual' → nilai teks yang diisi
+  const longestFirstName = finalRecipients.reduce((a, r) => {
+    const fn = firstName(r.name); return fn.length > a.length ? fn : a
+  }, '')
+  const nameSlotEst = Math.max(longestFirstName.length, (nameFallback.trim() || 'Kak').length, 20)
+  const estParams = Array.from({ length: varCount }, (_, i) =>
+    paramSrc[i] === 'nama' ? 'x'.repeat(nameSlotEst) : (tplParams[i] || ''))
+  const renderedLen = (mode === 'template' && selTpl) ? renderTpl(bodyOfTpl(selTpl), estParams).length : 0
+  const tplTooLong = mode === 'template' && renderedLen > WA_BODY_LIMIT
+  const tplNearLimit = mode === 'template' && renderedLen > WA_BODY_SAFE && renderedLen <= WA_BODY_LIMIT
+
+  const canNext1 = mode === 'text' ? text.trim().length >= 10 : (!!tplName && varsFilled && !tplTooLong)
+  const canSend = recipientCount > 0 && !!waNumberId && !busy && !tplTooLong
 
   return (
     <div className="page-wrap" style={{ maxWidth: 820 }}>
@@ -393,6 +412,24 @@ export default function BroadcastPage() {
                       <div style={{ marginTop: 12, padding: '12px 14px', background: '#FAFAFA', border: '1px solid #F0F0F0', borderRadius: 8 }}>
                         <div style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', marginBottom: 6, letterSpacing: '0.05em' }}>PREVIEW{paramSrc.some(s => s === 'nama') ? ` · contoh "${sampleName}"` : ''}</div>
                         <div style={{ fontSize: 13, color: '#0D0D0D', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{renderTpl(bodyOfTpl(selTpl), previewParams)}</div>
+                      </div>
+                    )}
+                    {selTpl && (
+                      <div style={{ marginTop: 8, fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 600, color: tplTooLong ? '#DC2626' : tplNearLimit ? '#B45309' : '#15803D' }}>
+                          ≈ {renderedLen} / {WA_BODY_LIMIT} karakter
+                        </span>
+                        <span style={{ color: '#9CA3AF' }}>setelah variabel diisi (perkiraan terpanjang)</span>
+                      </div>
+                    )}
+                    {tplTooLong && (
+                      <div style={{ marginTop: 8, padding: '10px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: 12, color: '#B91C1C', lineHeight: 1.5 }}>
+                        <b>Pesan kepanjangan.</b> Setelah variabel diisi, body-nya lewat {WA_BODY_LIMIT} karakter — Meta bakal nolak semua kiriman dengan error <b>(#132005) Translated text too long</b>. Pangkas isi body template atau perpendek nilai variabel dulu. Tombol lanjut dikunci sampai muat.
+                      </div>
+                    )}
+                    {tplNearLimit && (
+                      <div style={{ marginTop: 8, padding: '10px 12px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, fontSize: 12, color: '#92400E', lineHeight: 1.5 }}>
+                        Mepet limit. Nama penerima yang panjang bisa bikin render lewat {WA_BODY_LIMIT} — kasih jarak aman kalau bisa.
                       </div>
                     )}
                   </>
