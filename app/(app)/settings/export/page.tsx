@@ -3,12 +3,12 @@ import { useState } from 'react'
 import { authFetch } from '@/lib/client-fetch'
 
 const EXPORTS = [
-  { type: 'segmentation', label: 'Segmentasi Customer', desc: 'Kontak lengkap + aktivitas chat & performa broadcast per orang. Paling pas buat segmentasi.', file: 'segmentasi_customer.csv', star: true },
-  { type: 'contacts', label: 'Kontak (mentah)', desc: 'Semua kontak apa adanya (nama, nomor, tag, opt-out, order, dll).', file: 'kontak.csv' },
-  { type: 'conversations', label: 'Percakapan', desc: 'Semua percakapan di inbox.', file: 'percakapan.csv' },
-  { type: 'messages', label: 'Pesan', desc: 'Semua pesan masuk & keluar. Bisa besar kalau riwayat banyak.', file: 'pesan.csv' },
-  { type: 'campaigns', label: 'Campaign Broadcast', desc: 'Semua campaign broadcast yang pernah dibuat.', file: 'campaign_broadcast.csv' },
-  { type: 'recipients', label: 'Hasil Broadcast (per penerima)', desc: 'Status kirim tiap penerima di semua broadcast (terkirim/dibaca/gagal + alasan).', file: 'broadcast_penerima.csv' },
+  { type: 'segmentation', label: 'Segmentasi Customer', desc: 'Kontak lengkap + aktivitas chat & performa broadcast per orang. Paling pas buat segmentasi.', file: 'segmentasi_customer.xlsx', star: true },
+  { type: 'contacts', label: 'Kontak (mentah)', desc: 'Semua kontak apa adanya (nama, nomor, tag, opt-out, order, dll).', file: 'kontak.xlsx' },
+  { type: 'conversations', label: 'Percakapan', desc: 'Semua percakapan di inbox.', file: 'percakapan.xlsx' },
+  { type: 'messages', label: 'Pesan', desc: 'Semua pesan masuk & keluar. Bisa besar kalau riwayat banyak.', file: 'pesan.xlsx' },
+  { type: 'campaigns', label: 'Campaign Broadcast', desc: 'Semua campaign broadcast yang pernah dibuat.', file: 'campaign_broadcast.xlsx' },
+  { type: 'recipients', label: 'Hasil Broadcast (per penerima)', desc: 'Status kirim tiap penerima di semua broadcast (terkirim/dibaca/gagal + alasan).', file: 'broadcast_penerima.xlsx' },
 ]
 
 export default function ExportPage() {
@@ -45,7 +45,7 @@ export default function ExportPage() {
     <div>
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontSize: 15, fontWeight: 600, color: '#0D0D0D', marginBottom: 4 }}>Export Data</div>
-        <div style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.5 }}>Unduh data workspace ini sebagai file CSV (bisa dibuka di Excel/Google Sheets). Data otomatis hanya dari workspace yang sedang aktif.</div>
+        <div style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.5 }}>Unduh data workspace ini dalam format Excel (.xlsx), siap dibuka di Excel/Google Sheets. Data otomatis hanya dari workspace yang sedang aktif.</div>
       </div>
 
       {err && (
@@ -67,7 +67,7 @@ export default function ExportPage() {
               disabled={busy === x.type}
               style={{ flexShrink: 0, padding: '9px 16px', background: '#0D0D0D', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 500, cursor: busy ? 'default' : 'pointer', opacity: busy && busy !== x.type ? 0.5 : 1, fontFamily: 'inherit' }}
             >
-              {busy === x.type ? 'Menyiapkan…' : '⬇ Download CSV'}
+              {busy === x.type ? 'Menyiapkan…' : '⬇ Download Excel'}
             </button>
           </div>
         ))}
