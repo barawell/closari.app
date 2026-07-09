@@ -18,6 +18,19 @@ async function namesByPhone(tenantId: string, phones: string[]): Promise<Map<str
   return map
 }
 
+// Nama dari snapshot CSV yang tersimpan saat broadcast dibuat (kolom target_contacts).
+// Ini yang menyelamatkan nama penerima yang BUKAN kontak (mis. blast via CSV).
+async function snapshotNames(campaignId: string, tenantId: string): Promise<Map<string, string>> {
+  const map = new Map<string, string>()
+  try {
+    const { data } = await supabaseAdmin.from('broadcast_campaigns')
+      .select('target_contacts').eq('id', campaignId).eq('tenant_id', tenantId).maybeSingle()
+    const arr = (data as any)?.target_contacts
+    if (Array.isArray(arr)) for (const s of arr) if (s?.phone && s?.name) map.set(String(s.phone), String(s.name))
+  } catch { /* kolom target_contacts belum ada → abaikan */ }
+  return map
+}
+
 // GET /api/broadcast/history          → list campaign
 // GET /api/broadcast/history?id=...    → detail penerima 1 campaign
 export async function GET(req: Request) {
@@ -42,6 +55,7 @@ export async function GET(req: Request) {
 
     const recs = recipients || []
     const nameMap = await namesByPhone(actor.tenantId, recs.map((r: any) => r.phone))
+    const snapMap = await snapshotNames(id, actor.tenantId)
 
     return NextResponse.json({
       campaign,
@@ -54,7 +68,7 @@ export async function GET(req: Request) {
           sent_at: r.created_at,
           delivered_at: r.delivered_at,
           read_at: r.read_at,
-          name: cn || nameMap.get(r.phone) || null,
+          name: cn || nameMap.get(r.phone) || snapMap.get(r.phone) || null,
         }
       }),
     })

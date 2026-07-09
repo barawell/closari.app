@@ -111,10 +111,19 @@ async function buildBroadcastReport(t: string, campaignId: string): Promise<any[
     for (const row of data || []) if (row.name) nameMap.set(row.phone, row.name)
   }
 
+  // Snapshot nama CSV dari campaign (target_contacts) — untuk penerima yang bukan kontak.
+  const snapMap = new Map<string, string>()
+  try {
+    const { data: cc } = await supabaseAdmin.from('broadcast_campaigns')
+      .select('target_contacts').eq('id', campaignId).eq('tenant_id', t).maybeSingle()
+    const arr = (cc as any)?.target_contacts
+    if (Array.isArray(arr)) for (const s of arr) if (s?.phone && s?.name) snapMap.set(String(s.phone), String(s.name))
+  } catch { /* kolom belum ada → abaikan */ }
+
   return rows.map((r: any) => {
     const cn = Array.isArray(r.contact) ? r.contact[0]?.name : r.contact?.name
     return {
-      nama: cn || nameMap.get(r.phone) || '',
+      nama: cn || nameMap.get(r.phone) || snapMap.get(r.phone) || '',
       nomor: r.phone || '',
       tanggal: r.created_at ? new Date(r.created_at).toLocaleString('id-ID') : '',
       status: statusLabel(r.status),
