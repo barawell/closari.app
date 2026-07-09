@@ -7,6 +7,7 @@ const TABS = [
   { href: '/settings/workspace', label: 'Workspace' },
   { href: '/settings/members', label: 'Anggota Tim' },
   { href: '/settings/quick-replies', label: 'Quick Replies' },
+  { href: '/settings/export', label: 'Export Data' },
 ]
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
