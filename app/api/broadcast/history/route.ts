@@ -21,16 +21,20 @@ export async function GET(req: Request) {
 
     const { data: recipients } = await supabaseAdmin
       .from('broadcast_recipients')
-      .select('phone, status, contact:wa_contacts(name)')
+      .select('phone, status, error, created_at, delivered_at, read_at, contact:wa_contacts(name)')
       .eq('campaign_id', id).eq('tenant_id', actor.tenantId)
       .order('created_at', { ascending: true })
-      .limit(2000)
+      .limit(5000)
 
     return NextResponse.json({
       campaign,
       recipients: (recipients || []).map((r: any) => ({
         phone: r.phone,
         status: r.status,
+        error: r.error || null,
+        sent_at: r.created_at,
+        delivered_at: r.delivered_at,
+        read_at: r.read_at,
         name: Array.isArray(r.contact) ? r.contact[0]?.name : r.contact?.name,
       })),
     })

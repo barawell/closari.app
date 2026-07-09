@@ -117,6 +117,14 @@ async function handleStatus(auth: NumberAuth, st: any) {
     await supabaseAdmin.from('broadcast_recipients')
       .update({ status: 'read', read_at: new Date().toISOString() })
       .eq('wa_message_id', waId).eq('tenant_id', auth.tenantId)
+  } else if (status === 'failed') {
+    const errObj = Array.isArray(st?.errors) ? st.errors[0] : null
+    const code = errObj?.code
+    const title = errObj?.title || errObj?.message || errObj?.error_data?.details || 'Gagal terkirim'
+    const errText = code ? `(#${code}) ${title}` : String(title)
+    await supabaseAdmin.from('broadcast_recipients')
+      .update({ status: 'failed', error: errText })
+      .eq('wa_message_id', waId).eq('tenant_id', auth.tenantId)
   }
 }
 
