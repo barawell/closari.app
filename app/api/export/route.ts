@@ -99,13 +99,28 @@ async function buildBroadcastReport(t: string, campaignId: string): Promise<any[
     .select('phone, status, error, created_at, contact:wa_contacts(name)')
     .eq('campaign_id', campaignId).eq('tenant_id', t)
     .order('created_at', { ascending: true }).limit(20000)
-  return (recs || []).map((r: any) => ({
-    nama: (Array.isArray(r.contact) ? r.contact[0]?.name : r.contact?.name) || '',
-    nomor: r.phone || '',
-    tanggal: r.created_at ? new Date(r.created_at).toLocaleString('id-ID') : '',
-    status: statusLabel(r.status),
-    alasan_gagal: r.error || '',
-  }))
+  const rows = recs || []
+
+  // Resolusi nama by nomor untuk penerima tanpa contact_id (broadcast via CSV/daftar nomor).
+  const nameMap = new Map<string, string>()
+  const phones = Array.from(new Set(rows.map((r: any) => r.phone).filter(Boolean)))
+  for (let i = 0; i < phones.length; i += 500) {
+    const chunk = phones.slice(i, i + 500)
+    const { data } = await supabaseAdmin.from('wa_contacts')
+      .select('phone, name').eq('tenant_id', t).in('phone', chunk)
+    for (const row of data || []) if (row.name) nameMap.set(row.phone, row.name)
+  }
+
+  return rows.map((r: any) => {
+    const cn = Array.isArray(r.contact) ? r.contact[0]?.name : r.contact?.name
+    return {
+      nama: cn || nameMap.get(r.phone) || '',
+      nomor: r.phone || '',
+      tanggal: r.created_at ? new Date(r.created_at).toLocaleString('id-ID') : '',
+      status: statusLabel(r.status),
+      alasan_gagal: r.error || '',
+    }
+  })
 }
 
 const TABLES: Record<string, { table: string; base: string; sheet: string }> = {
