@@ -11,6 +11,7 @@ export default function QuickRepliesPage() {
   const [editing, setEditing] = useState<QuickReply | null>(null)
   const [form, setForm] = useState({ shortcut: '', title: '', body: '' })
   const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
 
   async function load() {
     const res = await authFetch('/api/quick-replies')
@@ -36,14 +37,20 @@ export default function QuickRepliesPage() {
   async function submit() {
     if (!form.shortcut || !form.title || !form.body) return
     setSaving(true)
+    setErr(null)
     try {
-      if (editing) {
-        await authFetch('/api/quick-replies', { method: 'PUT', body: JSON.stringify({ id: editing.id, ...form }) })
-      } else {
-        await authFetch('/api/quick-replies', { method: 'POST', body: JSON.stringify(form) })
+      const res = editing
+        ? await authFetch('/api/quick-replies', { method: 'PUT', body: JSON.stringify({ id: editing.id, ...form }) })
+        : await authFetch('/api/quick-replies', { method: 'POST', body: JSON.stringify(form) })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setErr(j.error || `Gagal menyimpan (${res.status})`)
+        return
       }
       setShowForm(false)
       await load()
+    } catch (e: any) {
+      setErr(e?.message || 'Gagal menyimpan')
     } finally { setSaving(false) }
   }
 
@@ -91,6 +98,12 @@ export default function QuickRepliesPage() {
       {showForm && (
         <div style={{ marginTop: 16, padding: 16, background: '#FAFAFA', border: '1px solid #E5E5E5', borderRadius: 10 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#0D0D0D', marginBottom: 12 }}>{editing ? 'Edit Quick Reply' : 'Buat Quick Reply Baru'}</div>
+          {err && (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontSize: 12, borderRadius: 7, padding: '9px 11px', marginBottom: 12, lineHeight: 1.5 }}>
+              {err}
+              {/quick_replies|does not exist|relation/i.test(err) && <div style={{ marginTop: 4, color: '#991B1B' }}>Tabel <code>quick_replies</code> belum ada di database. Jalankan SQL pembuatan tabelnya dulu.</div>}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
             <div style={{ flex: '0 0 180px' }}>
               <label style={lbl}>Shortcut</label>
