@@ -188,7 +188,12 @@ async function handleInbound(auth: NumberAuth, phoneNumberId: string, msg: any, 
     }
   } else if (type === 'location') {
     const loc = msg.location || {}
-    bodyText = `📍 Lokasi: ${loc.name || ''} ${loc.address || ''} (${loc.latitude},${loc.longitude})`.trim()
+    const label = [loc.name, loc.address].filter(Boolean).join(' — ')
+    bodyText = label || `${loc.latitude},${loc.longitude}`
+    if (loc.latitude != null && loc.longitude != null) {
+      mediaUrl = `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`
+      mediaMime = 'geo/location'
+    }
   } else if (type === 'contacts') {
     bodyText = '📇 Kartu kontak'
   } else if (type === 'reaction') {

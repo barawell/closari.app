@@ -66,6 +66,24 @@ export async function sendMediaByUrl(
   })
 }
 
+// Kirim pin lokasi ke customer (WhatsApp Cloud API type: location).
+export async function sendLocation(
+  phoneNumberId: string,
+  accessToken: string,
+  to: string,
+  loc: { latitude: number; longitude: number; name?: string; address?: string },
+): Promise<{ ok: boolean; waMessageId?: string; error?: string }> {
+  const location: any = { latitude: loc.latitude, longitude: loc.longitude }
+  if (loc.name) location.name = loc.name
+  if (loc.address) location.address = loc.address
+  return sendRaw(phoneNumberId, accessToken, {
+    messaging_product: 'whatsapp',
+    to,
+    type: 'location',
+    location,
+  })
+}
+
 // ── Core sender ─────────────────────────────────────────────
 async function sendRaw(
   phoneNumberId: string,

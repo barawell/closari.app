@@ -65,6 +65,23 @@ function StatusIcon({ status }: { status?: string }) {
 function MediaBubble({ m, light }: { m: Msg; light: boolean }) {
   const mime = m.media_mime || ''
   const url = m.media_url || ''
+
+  // Lokasi → kartu peta yang bisa dibuka di Google Maps
+  if (m.type === 'location' || mime === 'geo/location') {
+    if (!url) return <div style={{ fontSize: 12 }}>📍 {m.body || 'Lokasi'}</div>
+    return (
+      <a href={url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: light ? '#fff' : '#0D0D0D', padding: '4px 0' }}>
+        <div style={{ width: 34, height: 34, borderRadius: 7, background: light ? 'rgba(255,255,255,0.18)' : '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 14.5s5-4.2 5-8a5 5 0 10-10 0c0 3.8 5 8 5 8Z" stroke={light ? '#fff' : '#16A34A'} strokeWidth="1.3" strokeLinejoin="round"/><circle cx="8" cy="6.5" r="1.8" stroke={light ? '#fff' : '#16A34A'} strokeWidth="1.3"/></svg>
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 190 }}>{m.body || 'Lokasi dibagikan'}</div>
+          <div style={{ fontSize: 10, opacity: 0.75 }}>Ketuk untuk buka di Google Maps</div>
+        </div>
+      </a>
+    )
+  }
+
   if (!url) {
     return <div style={{ fontSize: 12, fontStyle: 'italic', opacity: 0.7 }}>📎 {m.media_filename || m.type || 'lampiran'} (gagal dimuat)</div>
   }
@@ -110,6 +127,12 @@ export default function InboxPage() {
   const [search, setSearch] = useState('')
   const [soundOn, setSoundOn] = useState(true)
   const [sendingMedia, setSendingMedia] = useState(false)
+  const [pending, setPending] = useState<{ file: File; url: string; isImage: boolean } | null>(null)
+  const [caption, setCaption] = useState('')
+  const [showLoc, setShowLoc] = useState(false)
+  const [locForm, setLocForm] = useState({ latitude: '', longitude: '', name: '', address: '' })
+  const [locBusy, setLocBusy] = useState(false)
+  const [locErr, setLocErr] = useState<string | null>(null)
   const [tenantId, setTenantId] = useState<string | null>(null)
   const [showInfoMobile, setShowInfoMobile] = useState(false)
   const [readMap, setReadMap] = useState<Record<string, number>>({})
@@ -330,21 +353,71 @@ export default function InboxPage() {
     if (res.ok) loadContactDetail(contactDetail.contact.id)
   }
 
-  async function sendMedia(file: File) {
-    if (!active) return
+  // Pilih file → TAMPILKAN PREVIEW dulu (tidak langsung kirim)
+  function pickFile(file: File) {
+    const isImage = (file.type || '').startsWith('image/')
+    setCaption('')
+    setPending({ file, url: URL.createObjectURL(file), isImage })
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function cancelPending() {
+    if (pending) URL.revokeObjectURL(pending.url)
+    setPending(null)
+    setCaption('')
+  }
+
+  // Kirim file yang sedang di-preview (beserta caption)
+  async function sendPending() {
+    if (!active || !pending || sendingMedia) return
     setSendingMedia(true)
     try {
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', pending.file)
       fd.append('conversation_id', active.id)
+      if (caption.trim()) fd.append('caption', caption.trim())
       const res = await authFetch('/api/inbox/media', { method: 'POST', body: fd })
-      const j = await res.json()
-      if (!res.ok) alert(j.error || 'Gagal kirim file')
-      else loadMsgs(active.id)
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) { alert(j.error || 'Gagal kirim file'); return }
+      cancelPending()
+      loadMsgs(active.id)
     } finally {
       setSendingMedia(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
     }
+  }
+
+  // Ambil lokasi saat ini dari GPS browser
+  function useMyLocation() {
+    setLocErr(null)
+    if (!navigator.geolocation) { setLocErr('Browser tidak mendukung GPS.'); return }
+    setLocBusy(true)
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setLocForm(f => ({ ...f, latitude: String(pos.coords.latitude), longitude: String(pos.coords.longitude) }))
+        setLocBusy(false)
+      },
+      err => { setLocErr(err.message || 'Gagal ambil lokasi. Izinkan akses lokasi di browser.'); setLocBusy(false) },
+      { enableHighAccuracy: true, timeout: 10000 },
+    )
+  }
+
+  async function sendLocationMsg() {
+    if (!active || locBusy) return
+    setLocErr(null)
+    const lat = Number(locForm.latitude), lng = Number(locForm.longitude)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) { setLocErr('Latitude & longitude wajib diisi.'); return }
+    setLocBusy(true)
+    try {
+      const res = await authFetch('/api/inbox/location', {
+        method: 'POST',
+        body: JSON.stringify({ conversation_id: active.id, latitude: lat, longitude: lng, name: locForm.name, address: locForm.address }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) { setLocErr(j.error || 'Gagal kirim lokasi'); return }
+      setShowLoc(false)
+      setLocForm({ latitude: '', longitude: '', name: '', address: '' })
+      loadMsgs(active.id)
+    } finally { setLocBusy(false) }
   }
 
   function handleTextChange(v: string) {
@@ -522,14 +595,81 @@ export default function InboxPage() {
               </div>
             )}
 
+            {/* PREVIEW sebelum kirim */}
+            {pending && (
+              <div style={{ padding: '12px 14px', background: '#FAFAFA', borderTop: '1px solid #E5E5E5' }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  {pending.isImage ? (
+                    <img src={pending.url} alt="" style={{ width: 90, height: 90, objectFit: 'cover', borderRadius: 8, border: '1px solid #E5E5E5', flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: 90, height: 90, borderRadius: 8, border: '1px solid #E5E5E5', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 26 }}>📄</div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#0D0D0D', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pending.file.name}</div>
+                    <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 7 }}>{(pending.file.size / 1024).toFixed(0)} KB</div>
+                    <input
+                      value={caption} onChange={e => setCaption(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendPending() } if (e.key === 'Escape') cancelPending() }}
+                      placeholder="Tambah caption (opsional)…" autoFocus
+                      style={{ width: '100%', padding: '8px 11px', border: '1px solid #E5E5E5', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: '#fff', color: '#0D0D0D', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
+                  <button onClick={cancelPending} disabled={sendingMedia}
+                    style={{ padding: '8px 14px', borderRadius: 7, background: '#fff', color: '#6B7280', border: '1px solid #E5E5E5', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Batal</button>
+                  <button onClick={sendPending} disabled={sendingMedia}
+                    style={{ padding: '8px 18px', borderRadius: 7, background: sendingMedia ? '#F0F0F0' : '#0D0D0D', color: sendingMedia ? '#9CA3AF' : '#fff', border: 'none', fontSize: 13, fontWeight: 500, cursor: sendingMedia ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                    {sendingMedia ? 'Mengirim…' : 'Kirim'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Kirim lokasi */}
+            {showLoc && (
+              <div style={{ padding: '12px 14px', background: '#FAFAFA', borderTop: '1px solid #E5E5E5' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#0D0D0D', marginBottom: 8 }}>Kirim Lokasi</div>
+                {locErr && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontSize: 11, borderRadius: 6, padding: '7px 9px', marginBottom: 8 }}>{locErr}</div>}
+                <button onClick={useMyLocation} disabled={locBusy}
+                  style={{ padding: '7px 12px', borderRadius: 7, background: '#fff', color: '#16A34A', border: '1px solid #BBF7D0', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
+                  📍 Pakai lokasi saya sekarang
+                </button>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <input value={locForm.latitude} onChange={e => setLocForm({ ...locForm, latitude: e.target.value })} placeholder="Latitude (-6.2088)"
+                    style={{ flex: 1, padding: '8px 11px', border: '1px solid #E5E5E5', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: '#fff', color: '#0D0D0D', boxSizing: 'border-box' }} />
+                  <input value={locForm.longitude} onChange={e => setLocForm({ ...locForm, longitude: e.target.value })} placeholder="Longitude (106.8456)"
+                    style={{ flex: 1, padding: '8px 11px', border: '1px solid #E5E5E5', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: '#fff', color: '#0D0D0D', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                  <input value={locForm.name} onChange={e => setLocForm({ ...locForm, name: e.target.value })} placeholder="Nama tempat (opsional)"
+                    style={{ flex: 1, padding: '8px 11px', border: '1px solid #E5E5E5', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: '#fff', color: '#0D0D0D', boxSizing: 'border-box' }} />
+                  <input value={locForm.address} onChange={e => setLocForm({ ...locForm, address: e.target.value })} placeholder="Alamat (opsional)"
+                    style={{ flex: 1, padding: '8px 11px', border: '1px solid #E5E5E5', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: '#fff', color: '#0D0D0D', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button onClick={() => { setShowLoc(false); setLocErr(null) }}
+                    style={{ padding: '8px 14px', borderRadius: 7, background: '#fff', color: '#6B7280', border: '1px solid #E5E5E5', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Batal</button>
+                  <button onClick={sendLocationMsg} disabled={locBusy}
+                    style={{ padding: '8px 18px', borderRadius: 7, background: locBusy ? '#F0F0F0' : '#0D0D0D', color: locBusy ? '#9CA3AF' : '#fff', border: 'none', fontSize: 13, fontWeight: 500, cursor: locBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                    {locBusy ? 'Mengirim…' : 'Kirim Lokasi'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div style={{ padding: '10px 14px', background: '#fff', borderTop: '1px solid #E5E5E5', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
               <input ref={fileInputRef} type="file" accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) sendMedia(f) }} />
+                onChange={e => { const f = e.target.files?.[0]; if (f) pickFile(f) }} />
               <button onClick={() => fileInputRef.current?.click()} disabled={sendingMedia} title="Kirim foto / dokumen"
                 style={{ padding: '9px 10px', borderRadius: 7, background: '#F7F7F7', border: '1px solid #E5E5E5', cursor: sendingMedia ? 'wait' : 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', color: '#6B7280' }}>
                 {sendingMedia
                   ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#D4D4D4" strokeWidth="2"/><path d="M8 2a6 6 0 016 6" stroke="#16A34A" strokeWidth="2" strokeLinecap="round"><animateTransform attributeName="transform" type="rotate" from="0 8 8" to="360 8 8" dur="0.7s" repeatCount="indefinite"/></path></svg>
                   : <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M14 7.5l-6 6a3.5 3.5 0 01-5-5l6.5-6.5a2.3 2.3 0 013.3 3.3L6.5 11.5a1.1 1.1 0 01-1.6-1.6L11 3.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+              </button>
+              <button onClick={() => { setShowLoc(v => !v); setLocErr(null) }} title="Kirim lokasi"
+                style={{ padding: '9px 10px', borderRadius: 7, background: showLoc ? '#F0FDF4' : '#F7F7F7', border: `1px solid ${showLoc ? '#BBF7D0' : '#E5E5E5'}`, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', color: showLoc ? '#16A34A' : '#6B7280' }}>
+                <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M8.5 15.5s5.5-4.6 5.5-8.8a5.5 5.5 0 10-11 0c0 4.2 5.5 8.8 5.5 8.8Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><circle cx="8.5" cy="6.7" r="2" stroke="currentColor" strokeWidth="1.4"/></svg>
               </button>
               <textarea
                 value={text} onChange={e => handleTextChange(e.target.value)}
