@@ -27,6 +27,7 @@ export async function POST(req: Request) {
   const templateName = (b.template_name || '').trim()
   const language = (b.language || 'id').trim()
   const templateParams: string[] = Array.isArray(b.template_params) ? b.template_params.map((p: any) => String(p ?? '')) : []
+  const imageUrl = (b.image_url || '').trim()  // opsional: lampiran gambar (mode teks)
   if (mode === 'text' && text.length < 10) {
     return NextResponse.json({ error: 'Pesan teks minimal 10 karakter.' }, { status: 400 })
   }
@@ -109,6 +110,19 @@ export async function POST(req: Request) {
       .update({ target_contacts: pairs.map((p) => ({ phone: p.phone, name: p.name || null })) })
       .eq('id', campaign.id)
     if (tcErr) console.warn('[broadcast] target_contacts belum tersimpan (jalankan migration target_contacts):', tcErr.message)
+  }
+
+  // Lampiran gambar (mode teks). Update terpisah & toleran: kalau kolom `image_url`
+  // belum dibuat, broadcast TANPA gambar tetap jalan normal.
+  if (imageUrl && mode === 'text') {
+    const { error: imgErr } = await supabaseAdmin.from('broadcast_campaigns')
+      .update({ image_url: imageUrl }).eq('id', campaign.id)
+    if (imgErr) {
+      console.warn('[broadcast] image_url gagal disimpan:', imgErr.message)
+      return NextResponse.json({
+        error: 'Kolom image_url belum ada di database. Jalankan SQL migration broadcast_image dulu.',
+      }, { status: 500 })
+    }
   }
 
   return NextResponse.json({

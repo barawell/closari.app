@@ -80,6 +80,9 @@ export default function BroadcastPage() {
   // Step 1 — compose
   const [mode, setMode] = useState<'text' | 'template'>('text')
   const [text, setText] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
+  const [imgBusy, setImgBusy] = useState(false)
+  const imgInputRef = useRef<HTMLInputElement>(null)
   const [category, setCategory] = useState('MARKETING')
   const [templates, setTemplates] = useState<Tpl[]>([])
   const [tplName, setTplName] = useState('')
@@ -150,6 +153,21 @@ export default function BroadcastPage() {
     const res = await authFetch('/api/broadcast?status=pending_approval'); const j = await res.json()
     setPending(j.campaigns || [])
   }
+  async function uploadImage(file: File) {
+    setImgBusy(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await authFetch('/api/broadcast/media', { method: 'POST', body: fd })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) { alert(j.error || 'Gagal upload gambar'); return }
+      setImageUrl(j.image_url)
+    } finally {
+      setImgBusy(false)
+      if (imgInputRef.current) imgInputRef.current.value = ''
+    }
+  }
+
   async function loadHistory() {
     const res = await authFetch('/api/broadcast'); const j = await res.json()
     setHistory((j.campaigns || []).filter((c: Campaign) => c.status !== 'pending_approval'))
@@ -239,7 +257,7 @@ export default function BroadcastPage() {
         mode, category,
         recipient_mode: rmode,
       }
-      if (mode === 'text') payload.text = text
+      if (mode === 'text') { payload.text = text; if (imageUrl) payload.image_url = imageUrl }
       else { payload.template_name = tplName; payload.language = selTpl?.language || 'id'; payload.template_params = buildParams() }
 
       if (rmode === 'contacts') {
@@ -255,7 +273,7 @@ export default function BroadcastPage() {
       if (!res.ok) { alert(j.error || 'Gagal'); return }
       alert(`Diajukan ✓ — ${j.eligible_count} penerima. Menunggu approval admin.`)
       // reset
-      setStep(1); setText(''); setPicked({}); setCsvRows([]); setManual(''); setCsvInfo(''); setTplParams([]); setParamSrc([])
+      setStep(1); setText(''); setImageUrl(''); setPicked({}); setCsvRows([]); setManual(''); setCsvInfo(''); setTplParams([]); setParamSrc([])
       setView('approval')
     } finally { setBusy(false) }
   }
@@ -374,6 +392,23 @@ export default function BroadcastPage() {
                     <label style={lbl}>Pesan</label>
                     <textarea value={text} onChange={e => setText(e.target.value)} rows={5} placeholder="Tulis pesan broadcast…" style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }} />
                     <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>{text.length} karakter · min 10</div>
+
+                    <label style={{ ...lbl, marginTop: 12 }}>Gambar (opsional)</label>
+                    <input ref={imgInputRef} type="file" accept="image/*" style={{ display: 'none' }}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f) }} />
+                    {imageUrl ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8 }}>
+                        <img src={imageUrl} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: '#15803D' }}>Gambar siap dikirim. Teks di atas jadi caption.</div>
+                        <button onClick={() => setImageUrl('')} style={{ fontSize: 12, color: '#DC2626', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Hapus</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => imgInputRef.current?.click()} disabled={imgBusy}
+                        style={{ padding: '9px 14px', background: '#fff', color: '#6B7280', border: '1px dashed #D4D4D4', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: imgBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                        {imgBusy ? 'Mengunggah…' : '🖼 Lampirkan gambar'}
+                      </button>
+                    )}
+                    <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>Maks 5 MB. Hanya untuk mode teks (dalam window 24 jam).</div>
                   </>
                 ) : (
                   <>

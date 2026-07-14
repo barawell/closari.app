@@ -61,6 +61,16 @@ function StatusIcon({ status }: { status?: string }) {
   return null
 }
 
+// Emoji yang paling sering dipakai CS/sales (tanpa library tambahan).
+const EMOJIS = [
+  '😊','😄','😁','🙂','😉','😍','🥰','😘','🤗','🙏',
+  '👍','👌','👏','🙌','💪','🤝','✌️','🫶','❤️','🔥',
+  '✅','☑️','✔️','❌','⚠️','❗','❓','💯','⭐','✨',
+  '📦','🚚','🛵','📍','📸','📄','🧾','💳','💰','🏷️',
+  '🎁','🎉','🥳','💊','🩺','⏰','📅','🕐','☎️','📱',
+  '😅','😂','🤣','😢','😭','😔','😴','🤔','😎','🙈',
+]
+
 // Render media (foto / video / audio / dokumen) di dalam bubble.
 function MediaBubble({ m, light }: { m: Msg; light: boolean }) {
   const mime = m.media_mime || ''
@@ -125,6 +135,13 @@ export default function InboxPage() {
   const [showQR, setShowQR] = useState(false)
   const [rightTab, setRightTab] = useState<'contact' | 'copilot'>('contact')
   const [search, setSearch] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState<Conv[] | null>(null)
+  const [hasMoreConvs, setHasMoreConvs] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasOlder, setHasOlder] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [showEmoji, setShowEmoji] = useState(false)
   const [soundOn, setSoundOn] = useState(true)
   const [sendingMedia, setSendingMedia] = useState(false)
   const [pending, setPending] = useState<{ file: File; url: string; isImage: boolean } | null>(null)
@@ -163,15 +180,50 @@ export default function InboxPage() {
     const res = await authFetch('/api/inbox/conversations')
     const j = await res.json()
     setConvs(j.conversations || [])
+    setHasMoreConvs(!!j.has_more)
   }, [])
+
+  // Muat percakapan lebih lama (riwayat penuh, bukan cuma yang terbaru)
+  async function loadMoreConvs() {
+    if (loadingMore) return
+    setLoadingMore(true)
+    try {
+      const res = await authFetch(`/api/inbox/conversations?offset=${convs.length}`)
+      const j = await res.json()
+      const more: Conv[] = j.conversations || []
+      setConvs(prev => {
+        const seen = new Set(prev.map(c => c.id))
+        return [...prev, ...more.filter(c => !seen.has(c.id))]
+      })
+      setHasMoreConvs(!!j.has_more)
+    } finally { setLoadingMore(false) }
+  }
 
   const loadMsgs = useCallback(async (id: string) => {
     const res = await authFetch(`/api/inbox/messages?conversation_id=${id}`)
     const j = await res.json()
     setMsgs(j.messages || [])
+    setHasOlder(!!j.has_more)
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
     setUnread(prev => ({ ...prev, [id]: 0 }))
   }, [])
+
+  // Muat pesan yang lebih lama di percakapan ini (riwayat chat lengkap)
+  async function loadOlderMsgs() {
+    if (!active || loadingOlder || !msgs.length) return
+    setLoadingOlder(true)
+    try {
+      const oldest = msgs[0].created_at
+      const res = await authFetch(`/api/inbox/messages?conversation_id=${active.id}&before=${encodeURIComponent(oldest)}`)
+      const j = await res.json()
+      const older: Msg[] = j.messages || []
+      setMsgs(prev => {
+        const seen = new Set(prev.map(m => m.id))
+        return [...older.filter(m => !seen.has(m.id)), ...prev]
+      })
+      setHasOlder(!!j.has_more)
+    } finally { setLoadingOlder(false) }
+  }
 
   // Tandai percakapan sudah dibaca, disimpan ke localStorage per workspace (persist saat reload).
   const markRead = useCallback((convId: string) => {
@@ -196,6 +248,22 @@ export default function InboxPage() {
       setReadMap(seed)
     } catch {}
   }, [tenantId, convs])
+
+  // Cari ke SERVER: nama, nomor, dan isi pesan — seluruh riwayat, bukan cuma yang ter-load.
+  useEffect(() => {
+    const q = search.trim()
+    if (!q) { setSearchResults(null); setSearching(false); return }
+    setSearching(true)
+    const t = setTimeout(async () => {
+      try {
+        const res = await authFetch(`/api/inbox/conversations?q=${encodeURIComponent(q)}`)
+        const j = await res.json()
+        setSearchResults(j.conversations || [])
+      } catch { setSearchResults(null) }
+      finally { setSearching(false) }
+    }, 350)
+    return () => clearTimeout(t)
+  }, [search])
 
   async function loadContactDetail(contactId: string) {
     if (!contactId) return
@@ -431,7 +499,9 @@ export default function InboxPage() {
     setShowQR(false)
   }
 
-  const filteredConvs = search.trim() ? convs.filter(c => {
+  // Hasil pencarian dari server (nama / nomor / ISI PESAN). Kalau server tak balas,
+  // fallback ke filter lokal biar tetap responsif.
+  const filteredConvs = search.trim() && searchResults !== null ? searchResults : search.trim() ? convs.filter(c => {
     const ct = contactOf(c)
     const q = search.toLowerCase()
     return (ct.name || '').toLowerCase().includes(q) || (ct.phone || '').includes(q)
@@ -463,7 +533,7 @@ export default function InboxPage() {
           </div>
           <input
             value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Cari nama / nomor…"
+            placeholder="Cari nama, nomor, atau isi chat…"
             style={{ width: '100%', padding: '6px 10px', fontSize: 12, border: '1px solid #E5E5E5', borderRadius: 5, background: '#F7F7F7', color: '#0D0D0D', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
           />
         </div>
@@ -472,7 +542,7 @@ export default function InboxPage() {
           {filteredConvs.length === 0 ? (
             <div style={{ padding: '32px 16px', textAlign: 'center' }}>
               <div style={{ fontSize: 13, color: '#9CA3AF', lineHeight: 1.6 }}>
-                {search ? 'Tidak ada hasil.' : <>Belum ada percakapan.<br />Pesan masuk otomatis muncul di sini.</>}
+                {searching ? 'Mencari…' : search ? 'Tidak ada hasil.' : <>Belum ada percakapan.<br />Pesan masuk otomatis muncul di sini.</>}
               </div>
             </div>
           ) : filteredConvs.map(c => {
@@ -510,6 +580,15 @@ export default function InboxPage() {
               </div>
             )
           })}
+
+          {!search.trim() && hasMoreConvs && (
+            <div style={{ padding: '10px 14px' }}>
+              <button onClick={loadMoreConvs} disabled={loadingMore}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 7, background: '#fff', border: '1px solid #E5E5E5', color: '#6B7280', fontSize: 12, fontWeight: 500, cursor: loadingMore ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                {loadingMore ? 'Memuat…' : 'Muat percakapan lama'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -536,6 +615,14 @@ export default function InboxPage() {
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 8, background: '#FAFAFA' }}>
+              {hasOlder && (
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>
+                  <button onClick={loadOlderMsgs} disabled={loadingOlder}
+                    style={{ padding: '6px 14px', borderRadius: 999, background: '#fff', border: '1px solid #E5E5E5', color: '#6B7280', fontSize: 12, fontWeight: 500, cursor: loadingOlder ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                    {loadingOlder ? 'Memuat…' : '↑ Muat pesan lama'}
+                  </button>
+                </div>
+              )}
               {msgs.map(m => (
                 <div key={m.id} style={{ display: 'flex', justifyContent: m.direction === 'in' ? 'flex-start' : 'flex-end' }}>
                   <div style={{ maxWidth: '70%' }}>
@@ -658,7 +745,24 @@ export default function InboxPage() {
               </div>
             )}
 
+            {showEmoji && (
+              <div style={{ padding: '10px 14px', background: '#FAFAFA', borderTop: '1px solid #E5E5E5' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(34px, 1fr))', gap: 4, maxHeight: 150, overflowY: 'auto' }}>
+                  {EMOJIS.map(em => (
+                    <button key={em} onClick={() => { setText(t => t + em); setShowEmoji(false) }}
+                      style={{ fontSize: 19, lineHeight: 1, padding: '6px 0', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                      {em}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div style={{ padding: '10px 14px', background: '#fff', borderTop: '1px solid #E5E5E5', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+              <button onClick={() => setShowEmoji(v => !v)} title="Emoji"
+                style={{ padding: '9px 10px', borderRadius: 7, background: showEmoji ? '#F0FDF4' : '#F7F7F7', border: `1px solid ${showEmoji ? '#BBF7D0' : '#E5E5E5'}`, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', fontSize: 15, lineHeight: 1 }}>
+                😊
+              </button>
               <input ref={fileInputRef} type="file" accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }}
                 onChange={e => { const f = e.target.files?.[0]; if (f) pickFile(f) }} />
               <button onClick={() => fileInputRef.current?.click()} disabled={sendingMedia} title="Kirim foto / dokumen"

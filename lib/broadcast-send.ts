@@ -4,7 +4,7 @@
 // - FIX: baca r.ok (bukan object) — bug lama yg bikin failed selalu 0.
 
 import { supabaseAdmin } from './supabase-admin'
-import { sendText, normalizePhone } from './wa'
+import { sendText, sendMediaByUrl, normalizePhone } from './wa'
 
 const GRAPH = 'https://graph.facebook.com/v21.0'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -139,6 +139,15 @@ export async function runCampaign(opts: {
     .update({ status: 'sending', total: recipients.length }).eq('id', campaignId)
 
   const isTemplate = camp.kind === 'template' && !!camp.template_name
+
+  // Lampiran gambar (opsional, hanya mode teks). Dibaca terpisah supaya kalau kolom
+  // `image_url` belum ada di DB, broadcast biasa TETAP jalan.
+  let imageUrl: string | null = null
+  if (!isTemplate) {
+    const { data: img } = await supabaseAdmin
+      .from('broadcast_campaigns').select('image_url').eq('id', campaignId).maybeSingle()
+    imageUrl = ((img as any)?.image_url as string) || null
+  }
   const tplParams: any[] = Array.isArray(camp.template_params) ? camp.template_params : []
 
   // Kalau template pakai variabel otomatis-nama, siapkan map phone → nama.
@@ -175,7 +184,9 @@ export async function runCampaign(opts: {
     const perParams = resolveParamsFor(tplParams, nameByPhone.get(c.phone) ?? c.name)
     const r = isTemplate
       ? await sendTemplate(phoneNumberId, accessToken, c.phone, camp.template_name as string, camp.language as string, perParams)
-      : await sendText(phoneNumberId, accessToken, c.phone, camp.body as string)
+      : imageUrl
+        ? await sendMediaByUrl(phoneNumberId, accessToken, c.phone, 'image', imageUrl, { caption: camp.body as string })
+        : await sendText(phoneNumberId, accessToken, c.phone, camp.body as string)
     const ok = r.ok
     if (ok) sent++; else { failed++; lastErr = r.error || lastErr }
 
