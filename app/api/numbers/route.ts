@@ -19,7 +19,14 @@ export async function POST(req: Request) {
   const actor = await getActor(req)
   if (!actor?.tenantId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
-  const { phone_number_id, waba_id, access_token, display_phone, label } = b
+  // Rapikan input: copy-paste dari Meta sering kebawa spasi/newline di ujung.
+  // Kalau tidak di-trim, Graph API balas "Object with ID '123 ' does not exist".
+  const clean = (v: any) => (typeof v === 'string' ? v.trim() : v)
+  const phone_number_id = clean(b.phone_number_id)
+  const waba_id = clean(b.waba_id)
+  const access_token = clean(b.access_token)
+  const display_phone = clean(b.display_phone)
+  const label = clean(b.label)
   if (!phone_number_id || !waba_id || !access_token) {
     return NextResponse.json({ error: 'phone_number_id, waba_id, access_token wajib' }, { status: 400 })
   }
