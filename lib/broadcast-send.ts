@@ -74,16 +74,23 @@ export async function computeEligible(
 async function sendTemplate(
   phoneNumberId: string, accessToken: string, to: string,
   templateName: string, language: string, params: string[] = [],
+  headerImageUrl?: string | null,
 ): Promise<{ ok: boolean; waMessageId?: string; error?: string }> {
   try {
     const template: any = { name: templateName, language: { code: language || 'id' } }
+    const comps: any[] = []
+    // Template dengan header GAMBAR wajib mengirim parameter header tiap kali dikirim.
+    if (headerImageUrl) {
+      comps.push({ type: 'header', parameters: [{ type: 'image', image: { link: headerImageUrl } }] })
+    }
     // Kalau template punya variabel {{1}}, {{2}}, dst → kirim sebagai body parameters
     if (params && params.length > 0) {
-      template.components = [{
+      comps.push({
         type: 'body',
         parameters: params.map((p) => ({ type: 'text', text: String(p ?? '') })),
-      }]
+      })
     }
+    if (comps.length) template.components = comps
     const res = await fetch(`${GRAPH}/${phoneNumberId}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -140,6 +147,17 @@ export async function runCampaign(opts: {
 
   const isTemplate = camp.kind === 'template' && !!camp.template_name
 
+  // Header gambar milik template (kalau templatenya memang bergambar).
+  // Toleran: kalau kolom belum ada, template teks biasa tetap jalan normal.
+  let tplHeaderImage: string | null = null
+  if (isTemplate) {
+    const { data: tpl } = await supabaseAdmin
+      .from('wa_templates').select('header_image_url')
+      .eq('tenant_id', tenantId).eq('name', camp.template_name as string)
+      .limit(1).maybeSingle()
+    tplHeaderImage = ((tpl as any)?.header_image_url as string) || null
+  }
+
   // Lampiran gambar (opsional, hanya mode teks). Dibaca terpisah supaya kalau kolom
   // `image_url` belum ada di DB, broadcast biasa TETAP jalan.
   let imageUrl: string | null = null
@@ -183,7 +201,7 @@ export async function runCampaign(opts: {
     const c = recipients[i]
     const perParams = resolveParamsFor(tplParams, nameByPhone.get(c.phone) ?? c.name)
     const r = isTemplate
-      ? await sendTemplate(phoneNumberId, accessToken, c.phone, camp.template_name as string, camp.language as string, perParams)
+      ? await sendTemplate(phoneNumberId, accessToken, c.phone, camp.template_name as string, camp.language as string, perParams, tplHeaderImage)
       : imageUrl
         ? await sendMediaByUrl(phoneNumberId, accessToken, c.phone, 'image', imageUrl, { caption: camp.body as string })
         : await sendText(phoneNumberId, accessToken, c.phone, camp.body as string)

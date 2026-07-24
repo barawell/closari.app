@@ -52,6 +52,10 @@ export async function POST(req: Request) {
   const category = String(b.category || 'MARKETING').trim().toUpperCase()
   const bodyText = String(b.body_text || '').trim()
   const headerText = String(b.header_text || '').trim()
+  // Header GAMBAR: handle dari /api/templates/upload-header (Resumable Upload Meta)
+  const headerFormat = String(b.header_format || (b.header_handle ? 'IMAGE' : 'TEXT')).toUpperCase()
+  const headerHandle = String(b.header_handle || '').trim()
+  const headerImageUrl = String(b.header_image_url || '').trim()
   const footerText = String(b.footer_text || '').trim()
   const bodyExamples: string[] = Array.isArray(b.body_examples) ? b.body_examples.filter(Boolean) : []
   const buttons: any[] = Array.isArray(b.buttons) ? b.buttons : []
@@ -90,7 +94,14 @@ export async function POST(req: Request) {
     if (codeExpiryMin > 0) components.push({ type: 'FOOTER', code_expiration_minutes: codeExpiryMin })
     components.push({ type: 'BUTTONS', buttons: [{ type: 'OTP', otp_type: 'COPY_CODE', text: otpButtonText }] })
   } else {
-    if (headerText) {
+    if (headerFormat === 'IMAGE' && headerHandle) {
+      // Meta minta contoh gambar berupa handle hasil Resumable Upload.
+      components.push({
+        type: 'HEADER',
+        format: 'IMAGE',
+        example: { header_handle: [headerHandle] },
+      })
+    } else if (headerText) {
       components.push({ type: 'HEADER', format: 'TEXT', text: headerText })
     }
 
@@ -126,6 +137,21 @@ export async function POST(req: Request) {
   const j = await res.json().catch(() => ({}))
   if (!res.ok) {
     return NextResponse.json({ error: j?.error?.error_user_msg || j?.error?.message || `gagal (${res.status})` }, { status: 502 })
+  }
+
+  // Simpan URL gambar header. Ini WAJIB ada supaya template bisa DIKIRIM nanti
+  // (Meta minta parameter header image tiap kali template bergambar dikirim).
+  // Toleran: kalau kolom `header_image_url` belum dibuat, template tetap berhasil diajukan.
+  if (headerFormat === 'IMAGE' && headerImageUrl) {
+    const { error: hErr } = await supabaseAdmin.from('wa_templates').upsert({
+      tenant_id: actor.tenantId,
+      name,
+      language,
+      category,
+      status: j?.status || 'PENDING',
+      header_image_url: headerImageUrl,
+    }, { onConflict: 'tenant_id,name,language' })
+    if (hErr) console.warn('[templates] header_image_url belum tersimpan (jalankan migration template_header_image):', hErr.message)
   }
 
   return NextResponse.json({ ok: true, id: j?.id, status: j?.status || 'PENDING', name })

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { authFetch } from '@/lib/client-fetch'
 import { BrandLoader } from '@/app/Loader'
 
@@ -34,6 +34,12 @@ export default function TemplatesPage() {
   const [category, setCategory] = useState('MARKETING')
   const [language, setLanguage] = useState('id')
   const [headerText, setHeaderText] = useState('')
+  const [headerMode, setHeaderMode] = useState<'none' | 'text' | 'image'>('none')
+  const [headerHandle, setHeaderHandle] = useState('')
+  const [headerImageUrl, setHeaderImageUrl] = useState('')
+  const [headerUploading, setHeaderUploading] = useState(false)
+  const [headerErr, setHeaderErr] = useState('')
+  const headerFileRef = useRef<HTMLInputElement>(null)
   const [bodyText, setBodyText] = useState('')
   const [footerText, setFooterText] = useState('')
   const [examples, setExamples] = useState<string[]>([])
@@ -44,6 +50,26 @@ export default function TemplatesPage() {
   const [okMsg, setOkMsg] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+
+  async function uploadHeaderImage(file: File) {
+    setHeaderUploading(true); setHeaderErr('')
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await authFetch('/api/templates/upload-header', { method: 'POST', body: fd })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) { setHeaderErr(j.error || 'Gagal upload gambar'); return }
+      setHeaderHandle(j.header_handle || '')
+      setHeaderImageUrl(j.image_url || '')
+    } finally {
+      setHeaderUploading(false)
+      if (headerFileRef.current) headerFileRef.current.value = ''
+    }
+  }
+
+  function clearHeaderImage() {
+    setHeaderHandle(''); setHeaderImageUrl(''); setHeaderErr('')
+  }
 
   useEffect(() => { loadList() }, [])
 
@@ -92,6 +118,7 @@ export default function TemplatesPage() {
   function resetForm() {
     setName(''); setCategory('MARKETING'); setLanguage('id')
     setHeaderText(''); setBodyText(''); setFooterText('')
+    setHeaderMode('none'); setHeaderHandle(''); setHeaderImageUrl(''); setHeaderErr('')
     setExamples([]); setButtons([])
   }
 
@@ -104,7 +131,10 @@ export default function TemplatesPage() {
           name, language, category,
           body_text: bodyText,
           body_examples: examples,
-          header_text: headerText || undefined,
+          header_text: headerMode === 'text' ? (headerText || undefined) : undefined,
+          header_format: headerMode === 'image' ? 'IMAGE' : 'TEXT',
+          header_handle: headerMode === 'image' ? (headerHandle || undefined) : undefined,
+          header_image_url: headerMode === 'image' ? (headerImageUrl || undefined) : undefined,
           footer_text: footerText || undefined,
           buttons: buttons.length ? buttons : undefined,
           // AUTHENTICATION
@@ -240,8 +270,47 @@ export default function TemplatesPage() {
 
           {!isAuth && (<>
           <div style={{ marginBottom: 14 }}>
-            <label style={lbl}>Header (opsional, teks)</label>
-            <input value={headerText} onChange={e => setHeaderText(e.target.value)} placeholder="Judul singkat di atas pesan" style={inp} maxLength={60} />
+            <label style={lbl}>Header (opsional)</label>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+              {([['none', 'Tanpa header'], ['text', 'Teks'], ['image', 'Gambar']] as const).map(([k, l]) => (
+                <button key={k} onClick={() => { setHeaderMode(k); setHeaderErr('') }}
+                  style={{ padding: '7px 14px', borderRadius: 999, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+                    border: `1px solid ${headerMode === k ? '#16A34A' : '#E5E5E5'}`,
+                    background: headerMode === k ? '#F0FDF4' : '#fff',
+                    color: headerMode === k ? '#15803D' : '#6B7280' }}>{l}</button>
+              ))}
+            </div>
+
+            {headerMode === 'text' && (
+              <input value={headerText} onChange={e => setHeaderText(e.target.value)} placeholder="Judul singkat di atas pesan" style={inp} maxLength={60} />
+            )}
+
+            {headerMode === 'image' && (
+              <div>
+                {headerErr && (
+                  <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontSize: 12, borderRadius: 7, padding: '9px 11px', marginBottom: 8, lineHeight: 1.5 }}>{headerErr}</div>
+                )}
+                <input ref={headerFileRef} type="file" accept="image/jpeg,image/png" style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadHeaderImage(f) }} />
+                {headerImageUrl || headerHandle ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8 }}>
+                    {headerImageUrl
+                      ? <img src={headerImageUrl} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
+                      : <div style={{ width: 56, height: 56, borderRadius: 6, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>🖼</div>}
+                    <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: '#15803D' }}>Gambar header siap diajukan ke Meta.</div>
+                    <button onClick={clearHeaderImage} style={{ fontSize: 12, color: '#DC2626', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Ganti</button>
+                  </div>
+                ) : (
+                  <button onClick={() => headerFileRef.current?.click()} disabled={headerUploading}
+                    style={{ padding: '9px 14px', background: '#fff', color: '#6B7280', border: '1px dashed #D4D4D4', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: headerUploading ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                    {headerUploading ? 'Mengunggah ke Meta…' : '🖼 Pilih gambar header'}
+                  </button>
+                )}
+                <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 5, lineHeight: 1.5 }}>
+                  JPG/PNG, maks 5 MB. Gambar ini jadi contoh saat review Meta sekaligus gambar yang dikirim ke customer.
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{ marginBottom: 14 }}>
@@ -317,7 +386,8 @@ export default function TemplatesPage() {
       )}
       {showPreview && tab === 'create' && (
         <WaPreview
-          header={isAuth ? '' : headerText}
+          header={isAuth || headerMode !== 'text' ? '' : headerText}
+          headerImage={!isAuth && headerMode === 'image' ? headerImageUrl : ''}
           body={isAuth
             ? '{{1}} adalah kode verifikasi Anda. Demi keamanan, jangan bagikan kode ini kepada siapa pun.'
             : bodyText}
@@ -332,13 +402,14 @@ export default function TemplatesPage() {
   )
 }
 
-function WaPreview({ header, body, footer, buttons, examples }: { header: string; body: string; footer: string; buttons: any[]; examples: string[] }) {
+function WaPreview({ header, headerImage, body, footer, buttons, examples }: { header: string; headerImage?: string; body: string; footer: string; buttons: any[]; examples: string[] }) {
   const rendered = body.replace(/\{\{(\d+)\}\}/g, (_: string, n: string) => examples[parseInt(n) - 1] || `{{${n}}}`)
   return (
     <div style={{ marginTop: 20, background: '#E5DDD5', borderRadius: 12, padding: 20 }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Preview — tampilan di WhatsApp</div>
       <div style={{ maxWidth: 300 }}>
         <div style={{ background: '#fff', borderRadius: '0 10px 10px 10px', padding: '10px 12px', boxShadow: '0 1px 2px rgba(0,0,0,0.12)' }}>
+          {headerImage && <img src={headerImage} alt="" style={{ width: '100%', borderRadius: 6, marginBottom: 8, display: 'block' }} />}
           {header && <div style={{ fontSize: 14, fontWeight: 700, color: '#0D0D0D', marginBottom: 6 }}>{header}</div>}
           <div style={{ fontSize: 13, color: '#111', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
             {rendered || <span style={{ color: '#9CA3AF' }}>Isi body dulu…</span>}
