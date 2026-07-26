@@ -31,7 +31,7 @@ function playNotifSound() {
 }
 
 type Conv = { id: string; status: string; last_message_at: string; tags?: string[]; contact: any }
-type Msg = { id: string; direction: string; body: string; sender: string; created_at: string; status?: string; type?: string; media_url?: string | null; media_mime?: string | null; media_filename?: string | null; is_forwarded?: boolean; reply_to?: string | null; quoted?: { direction: string; type?: string; body?: string; is_media?: boolean } | null }
+type Msg = { id: string; wa_message_id?: string | null; direction: string; body: string; sender: string; created_at: string; status?: string; type?: string; media_url?: string | null; media_mime?: string | null; media_filename?: string | null; is_forwarded?: boolean; reply_to?: string | null; quoted?: { direction: string; type?: string; body?: string; is_media?: boolean } | null }
 type ContactDetail = { contact: any; stats: { total_messages_in: number; total_messages_out: number; total_conversations: number; days_since_first_contact: number | null; days_since_last_order: number | null } }
 type QuickReply = { id: string; shortcut: string; title: string; body: string }
 
@@ -123,6 +123,8 @@ export default function InboxPage() {
   const [active, setActive] = useState<Conv | null>(null)
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [text, setText] = useState('')
+  const [replyingTo, setReplyingTo] = useState<Msg | null>(null)
+  const [forwarding, setForwarding] = useState<Msg | null>(null)
   const [sending, setSending] = useState(false)
   const [copilot, setCopilot] = useState<{ intent: string; suggestion: string } | null>(null)
   const [coLoading, setCoLoading] = useState(false)
@@ -364,14 +366,17 @@ export default function InboxPage() {
   async function send() {
     if (!active || !text.trim()) return
     setSending(true)
-    const optimistic: Msg = { id: `opt-${Date.now()}`, direction: 'out', body: text, sender: 'agent', created_at: new Date().toISOString(), status: 'sending' }
+    const optimistic: Msg = { id: `opt-${Date.now()}`, direction: 'out', body: text, sender: 'agent', created_at: new Date().toISOString(), status: 'sending', is_forwarded: !!forwarding, quoted: replyingTo ? { direction: replyingTo.direction, body: replyingTo.body, is_media: !!replyingTo.media_mime } : null }
     setMsgs(prev => [...prev, optimistic])
     const textToSend = text
+    const wasReply = replyingTo
     setText('')
+    setReplyingTo(null)
+    setForwarding(null)
     setShowQR(false)
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
     try {
-      const res = await authFetch('/api/inbox/send', { method: 'POST', body: JSON.stringify({ conversation_id: active.id, text: textToSend }) })
+      const res = await authFetch('/api/inbox/send', { method: 'POST', body: JSON.stringify({ conversation_id: active.id, text: textToSend, reply_to: replyingTo?.wa_message_id || undefined, forward: forwarding ? true : undefined }) })
       const j = await res.json()
       if (!res.ok) {
         setMsgs(prev => prev.map(m => m.id === optimistic.id ? { ...m, status: 'failed' } : m))
@@ -511,6 +516,11 @@ export default function InboxPage() {
 
   return (
     <div className={`inbox-shell${active ? ' has-active' : ''}${showInfoMobile ? ' show-info' : ''}`} style={{ display: 'flex', height: '100vh', background: '#fff' }}>
+      <style>{`
+        .msg-actions { opacity: 0; transition: opacity 0.12s; }
+        .msg-row:hover .msg-actions { opacity: 1; }
+        @media (hover: none) { .msg-actions { opacity: 1; } }
+      `}</style>
       {/* LEFT: CONVERSATION LIST */}
       <div className="inbox-list" style={{ width: 280, borderRight: '1px solid #E5E5E5', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid #F0F0F0' }}>
@@ -624,7 +634,7 @@ export default function InboxPage() {
                 </div>
               )}
               {msgs.map(m => (
-                <div key={m.id} style={{ display: 'flex', justifyContent: m.direction === 'in' ? 'flex-start' : 'flex-end' }}>
+                <div key={m.id} className="msg-row" style={{ display: 'flex', justifyContent: m.direction === 'in' ? 'flex-start' : 'flex-end' }}>
                   <div style={{ maxWidth: '70%' }}>
                     <div style={{
                       padding: '9px 13px', borderRadius: 10,
@@ -666,6 +676,18 @@ export default function InboxPage() {
                         </div>
                       )}
                       {m.body}
+                    </div>
+                    <div className="msg-actions" style={{ display: 'flex', gap: 10, marginTop: 3, justifyContent: m.direction === 'in' ? 'flex-start' : 'flex-end', paddingLeft: 2, paddingRight: 2 }}>
+                      <button onClick={() => { setForwarding(null); setReplyingTo(m); }}
+                        style={{ background: 'none', border: 'none', padding: 0, fontSize: 11, color: '#9CA3AF', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 3H8a2.5 2.5 0 010 5H4M6 3L4 1M6 3L4 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        Balas
+                      </button>
+                      <button onClick={() => { setReplyingTo(null); setForwarding(m); setText(m.body || ''); }}
+                        style={{ background: 'none', border: 'none', padding: 0, fontSize: 11, color: '#9CA3AF', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 9H4a2.5 2.5 0 010-5h4M6 9l2 2M6 9l2-2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        Teruskan
+                      </button>
                     </div>
                     {m.direction === 'out' && (
                       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 3, paddingRight: 2 }}>
@@ -769,6 +791,21 @@ export default function InboxPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {(replyingTo || forwarding) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', background: '#F0FDF4', borderTop: '1px solid #E5E5E5', borderLeft: '3px solid #16A34A' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#15803D', marginBottom: 1 }}>
+                    {forwarding ? 'Meneruskan pesan' : `Membalas ${replyingTo?.direction === 'in' ? 'customer' : 'diri sendiri'}`}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {(forwarding || replyingTo)?.body || ((forwarding || replyingTo)?.media_mime ? '📎 Lampiran' : 'Pesan')}
+                  </div>
+                </div>
+                <button onClick={() => { setReplyingTo(null); setForwarding(null); if (forwarding) setText(''); }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: 18, lineHeight: 1, padding: 4, flexShrink: 0 }}>×</button>
               </div>
             )}
 

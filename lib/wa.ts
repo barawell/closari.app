@@ -37,13 +37,17 @@ export async function sendText(
   accessToken: string,
   to: string,
   body: string,
+  replyToWaId?: string | null,
 ): Promise<{ ok: boolean; waMessageId?: string; error?: string }> {
-  return sendRaw(phoneNumberId, accessToken, {
+  const payload: any = {
     messaging_product: 'whatsapp',
     to,
     type: 'text',
     text: { body, preview_url: true },
-  })
+  }
+  // Reply ke pesan tertentu (context) — sama seperti "reply" di WhatsApp.
+  if (replyToWaId) payload.context = { message_id: replyToWaId }
+  return sendRaw(phoneNumberId, accessToken, payload)
 }
 
 // ── Kirim media (image / document / video / audio) via URL ──

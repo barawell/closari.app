@@ -12,6 +12,8 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}))
   const conversationId = body.conversation_id as string
   const text = (body.text || '').trim()
+  const replyToWaId = (body.reply_to || '').trim() || null   // reply ke pesan tertentu
+  const isForward = !!body.forward                            // tandai sebagai diteruskan
   if (!conversationId || !text) return NextResponse.json({ error: 'conversation_id & text wajib' }, { status: 400 })
 
   const { data: conv } = await supabaseAdmin
@@ -29,9 +31,9 @@ export async function POST(req: Request) {
     .from('wa_number_secrets').select('access_token').eq('wa_number_id', num.id).maybeSingle()
   if (!sec?.access_token) return NextResponse.json({ error: 'token nomor tidak ada' }, { status: 400 })
 
-  const r = await sendText(num.phone_number_id as string, sec.access_token as string, to, text)
+  const r = await sendText(num.phone_number_id as string, sec.access_token as string, to, text, replyToWaId)
 
-  await supabaseAdmin.from('wa_messages').insert({
+  const outRow: any = {
     tenant_id: actor.tenantId,
     conversation_id: conversationId,
     contact_id: conv.contact_id,
@@ -41,7 +43,15 @@ export async function POST(req: Request) {
     body: text,
     sender: 'agent',
     status: r.ok ? 'sent' : 'failed',
-  })
+  }
+  if (replyToWaId) outRow.reply_to = replyToWaId
+  if (isForward) outRow.is_forwarded = true
+  const { error: insErr } = await supabaseAdmin.from('wa_messages').insert(outRow)
+  if (insErr && (replyToWaId || isForward)) {
+    // Kolom reply_to belum ada → simpan tanpa flag itu, jangan sampai pesan gagal tercatat.
+    delete outRow.reply_to
+    await supabaseAdmin.from('wa_messages').insert(outRow)
+  }
   await supabaseAdmin.from('wa_conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversationId)
 
   if (!r.ok) {
