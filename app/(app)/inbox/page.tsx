@@ -62,17 +62,48 @@ function StatusIcon({ status }: { status?: string }) {
 }
 
 // Emoji yang paling sering dipakai CS/sales (tanpa library tambahan).
-const EMOJIS = [
-  '😊','😄','😁','🙂','😉','😍','🥰','😘','🤗','🙏',
-  '👍','👌','👏','🙌','💪','🤝','✌️','🫶','❤️','🔥',
-  '✅','☑️','✔️','❌','⚠️','❗','❓','💯','⭐','✨',
-  '📦','🚚','🛵','📍','📸','📄','🧾','💳','💰','🏷️',
-  '🎁','🎉','🥳','💊','🩺','⏰','📅','🕐','☎️','📱',
-  '😅','😂','🤣','😢','😭','😔','😴','🤔','😎','🙈',
+const EMOJI_CATEGORIES: { key: string; icon: string; emojis: string[] }[] = [
+  {
+    key: 'Sering', icon: '🕘',
+    emojis: ['😊','😂','🙏','👍','❤️','🔥','✅','😍','🥰','😅','🙌','💯','🎉','😭','🤝','👌','💪','😎','🙈','✨'],
+  },
+  {
+    key: 'Wajah', icon: '😀',
+    emojis: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🤧','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','😟','🙁','☹️','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','💩','🤡','👻','👽','🤖'],
+  },
+  {
+    key: 'Gestur', icon: '👍',
+    emojis: ['👍','👎','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','👇','☝️','✋','🤚','🖐️','🖖','👋','🤝','🙏','✍️','💅','🤳','💪','🦾','🙌','👏','🙋','🤦','🤷','🧏','🙇','💁','🙅','🙆','🫶','🫰','🫵','👐','🤲','🫂'],
+  },
+  {
+    key: 'Hati', icon: '❤️',
+    emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️','💌','😻','🥰','😍'],
+  },
+  {
+    key: 'Hewan', icon: '🐶',
+    emojis: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐢','🐍','🐙','🦑','🦐','🦀','🐬','🐳','🐟','🐠','🐡','🦈','🐊','🐅','🐆','🦓','🦍','🐘','🦏','🐪','🐫','🦒','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🐐','🦌','🐕','🐩','🐈','🐓','🦃','🕊️','🐇','🐁','🐿️','🦔'],
+  },
+  {
+    key: 'Makanan', icon: '🍔',
+    emojis: ['🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🌽','🥕','🧄','🧅','🥔','🍠','🥐','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🍗','🍖','🌭','🍔','🍟','🍕','🥪','🌮','🌯','🥙','🍜','🍲','🍛','🍣','🍱','🥟','🍤','🍙','🍚','🍘','🍥','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','☕','🍵','🧃','🥤','🧋','🍶','🍺','🍷','🥂','🥃','🍹'],
+  },
+  {
+    key: 'Aktivitas', icon: '⚽',
+    emojis: ['⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🎱','🏓','🏸','🥅','🏒','🏑','🏏','⛳','🏹','🎣','🥊','🥋','🎽','⛸️','🥌','🛷','🎿','⛷️','🏂','🏋️','🤼','🤸','⛹️','🤺','🤾','🏌️','🏇','🧘','🏄','🏊','🤽','🚣','🚴','🚵','🎯','🎮','🎲','🎳','🎪','🎬','🎤','🎧','🎼','🎹','🥁','🎷','🎺','🎸','🪕','🎻','🏆','🥇','🥈','🥉','🏅','🎖️'],
+  },
+  {
+    key: 'Objek', icon: '💡',
+    emojis: ['⌚','📱','💻','⌨️','🖥️','🖨️','🖱️','💽','💾','📷','📸','📹','🎥','📞','☎️','📟','📠','📺','📻','⏰','⏱️','⏲️','🕐','⌛','⏳','🔋','🔌','💡','🔦','🕯️','🧯','🛢️','💸','💵','💴','💶','💷','💰','💳','🧾','💎','⚖️','🔧','🔨','⚙️','🧰','🔩','⛓️','🔗','📦','📫','📮','📝','📄','📃','📑','📊','📈','📉','🗂️','📅','📆','🗓️','📇','🗃️','🗄️','📋','📌','📍','📎','🖇️','📏','📐','✂️','🔒','🔓','🔑','🗝️'],
+  },
+  {
+    key: 'Simbol', icon: '✅',
+    emojis: ['✅','☑️','✔️','❌','⭕','❎','✳️','✴️','❇️','‼️','⁉️','❓','❔','❕','❗','⚠️','🚫','💯','🔥','⭐','🌟','✨','⚡','💥','💫','💦','💨','🎉','🎊','🏷️','🔖','💊','🩺','💉','🩹','🌡️','♻️','⚕️','🔞','📵','🔇','🔊','🔔','🔕','➕','➖','➗','✖️','💲','©️','®️','™️','🆗','🆕','🆓','🆙','🔝','🔙','▶️','⏸️','⏹️','⏺️','⏭️','⏮️','🔀','🔁','🔂','🕐','🕑','🕒','🕓','🕔','🕕'],
+  },
 ]
+const EMOJIS = EMOJI_CATEGORIES.flatMap(c => c.emojis)
 
 // Render media (foto / video / audio / dokumen) di dalam bubble.
-function MediaBubble({ m, light }: { m: Msg; light: boolean }) {
+function MediaBubble({ m, light, onOpen }: { m: Msg; light: boolean; onOpen?: (m: Msg) => void }) {
   const mime = m.media_mime || ''
   const url = m.media_url || ''
 
@@ -96,7 +127,8 @@ function MediaBubble({ m, light }: { m: Msg; light: boolean }) {
     return <div style={{ fontSize: 12, fontStyle: 'italic', opacity: 0.7 }}>📎 {m.media_filename || m.type || 'lampiran'} (gagal dimuat)</div>
   }
   if (mime.startsWith('image/') || m.type === 'image' || m.type === 'sticker') {
-    return <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="" style={{ maxWidth: 240, maxHeight: 280, borderRadius: 8, display: 'block', objectFit: 'cover' }} /></a>
+    // Buka di lightbox dalam window (bukan tab baru)
+    return <img src={url} alt="" onClick={() => onOpen?.(m)} style={{ maxWidth: 240, maxHeight: 280, borderRadius: 8, display: 'block', objectFit: 'cover', cursor: 'zoom-in' }} />
   }
   if (mime.startsWith('video/') || m.type === 'video') {
     return <video src={url} controls style={{ maxWidth: 260, borderRadius: 8, display: 'block' }} />
@@ -104,17 +136,52 @@ function MediaBubble({ m, light }: { m: Msg; light: boolean }) {
   if (mime.startsWith('audio/') || m.type === 'audio' || m.type === 'voice') {
     return <audio src={url} controls style={{ maxWidth: 240 }} />
   }
-  // dokumen
+  // dokumen → buka di panel viewer dalam window
   return (
-    <a href={url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: light ? '#fff' : '#0D0D0D', padding: '4px 0' }}>
+    <div onClick={() => onOpen?.(m)} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', color: light ? '#fff' : '#0D0D0D', padding: '4px 0' }}>
       <div style={{ width: 34, height: 34, borderRadius: 7, background: light ? 'rgba(255,255,255,0.18)' : '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 1.5h5L12.5 5v9.5H4V1.5Z" stroke={light ? '#fff' : '#16A34A'} strokeWidth="1.3" strokeLinejoin="round"/><path d="M9 1.5V5h3.5" stroke={light ? '#fff' : '#16A34A'} strokeWidth="1.3" strokeLinejoin="round"/></svg>
       </div>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{m.media_filename || 'Dokumen'}</div>
-        <div style={{ fontSize: 10, opacity: 0.7 }}>Ketuk untuk buka</div>
+        <div style={{ fontSize: 10, opacity: 0.7 }}>Ketuk untuk lihat</div>
       </div>
-    </a>
+    </div>
+  )
+}
+
+// Penampil media dalam window (gambar zoom / dokumen preview) — tidak ke tab baru.
+function MediaViewer({ m, onClose }: { m: Msg; onClose: () => void }) {
+  const mime = m.media_mime || ''
+  const url = m.media_url || ''
+  const isImage = mime.startsWith('image/') || m.type === 'image' || m.type === 'sticker'
+  const isPdf = mime.includes('pdf') || (m.media_filename || '').toLowerCase().endsWith('.pdf')
+  const name = m.media_filename || (isImage ? 'Gambar' : 'Dokumen')
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', zIndex: 100, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', color: '#fff', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+        <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>{name}</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <a href={url} download={name} style={{ fontSize: 12, color: '#fff', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 6, padding: '6px 12px' }}>⬇ Unduh</a>
+          <button onClick={onClose} style={{ fontSize: 22, color: '#fff', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1, padding: '0 6px' }}>×</button>
+        </div>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px 16px' }} onClick={e => e.stopPropagation()}>
+        {isImage ? (
+          <img src={url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 6 }} />
+        ) : isPdf ? (
+          <iframe src={url} title={name} style={{ width: '100%', height: '100%', border: 'none', borderRadius: 6, background: '#fff' }} />
+        ) : (
+          <div style={{ background: '#fff', borderRadius: 10, padding: '32px 28px', textAlign: 'center', maxWidth: 340 }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#0D0D0D', marginBottom: 4, wordBreak: 'break-word' }}>{name}</div>
+            <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 18 }}>Pratinjau tidak tersedia untuk tipe file ini.</div>
+            <a href={url} download={name} style={{ display: 'inline-block', background: '#0D0D0D', color: '#fff', fontSize: 13, fontWeight: 500, textDecoration: 'none', borderRadius: 7, padding: '10px 20px' }}>⬇ Unduh file</a>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -125,6 +192,7 @@ export default function InboxPage() {
   const [text, setText] = useState('')
   const [replyingTo, setReplyingTo] = useState<Msg | null>(null)
   const [forwarding, setForwarding] = useState<Msg | null>(null)
+  const [viewer, setViewer] = useState<Msg | null>(null)
   const [sending, setSending] = useState(false)
   const [copilot, setCopilot] = useState<{ intent: string; suggestion: string } | null>(null)
   const [coLoading, setCoLoading] = useState(false)
@@ -144,6 +212,8 @@ export default function InboxPage() {
   const [hasOlder, setHasOlder] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [showEmoji, setShowEmoji] = useState(false)
+  const [emojiCat, setEmojiCat] = useState('Sering')
+  const [emojiSearch, setEmojiSearch] = useState('')
   const [soundOn, setSoundOn] = useState(true)
   const [sendingMedia, setSendingMedia] = useState(false)
   const [pending, setPending] = useState<{ file: File; url: string; isImage: boolean } | null>(null)
@@ -521,6 +591,7 @@ export default function InboxPage() {
         .msg-row:hover .msg-actions { opacity: 1; }
         @media (hover: none) { .msg-actions { opacity: 1; } }
       `}</style>
+      {viewer && <MediaViewer m={viewer} onClose={() => setViewer(null)} />}
       {/* LEFT: CONVERSATION LIST */}
       <div className="inbox-list" style={{ width: 280, borderRight: '1px solid #E5E5E5', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid #F0F0F0' }}>
@@ -672,7 +743,7 @@ export default function InboxPage() {
                       )}
                       {(m.media_url || (m.type && m.type !== 'text' && m.type !== 'button' && m.type !== 'interactive')) && (
                         <div style={{ marginBottom: m.body ? 6 : 0 }}>
-                          <MediaBubble m={m} light={m.direction === 'out' && m.sender !== 'ai'} />
+                          <MediaBubble m={m} light={m.direction === 'out' && m.sender !== 'ai'} onOpen={setViewer} />
                         </div>
                       )}
                       {m.body}
@@ -782,11 +853,28 @@ export default function InboxPage() {
             )}
 
             {showEmoji && (
-              <div style={{ padding: '10px 14px', background: '#FAFAFA', borderTop: '1px solid #E5E5E5' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(34px, 1fr))', gap: 4, maxHeight: 150, overflowY: 'auto' }}>
-                  {EMOJIS.map(em => (
-                    <button key={em} onClick={() => { setText(t => t + em); setShowEmoji(false) }}
-                      style={{ fontSize: 19, lineHeight: 1, padding: '6px 0', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+              <div style={{ background: '#FAFAFA', borderTop: '1px solid #E5E5E5' }}>
+                <div style={{ padding: '8px 12px 0' }}>
+                  <input value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} placeholder="Cari emoji…"
+                    style={{ width: '100%', padding: '7px 11px', border: '1px solid #E5E5E5', borderRadius: 7, fontSize: 12, fontFamily: 'inherit', outline: 'none', background: '#fff', boxSizing: 'border-box' }} />
+                </div>
+                {!emojiSearch.trim() && (
+                  <div style={{ display: 'flex', gap: 2, padding: '6px 10px 0', overflowX: 'auto' }}>
+                    {EMOJI_CATEGORIES.map(c => (
+                      <button key={c.key} onClick={() => setEmojiCat(c.key)} title={c.key}
+                        style={{ fontSize: 17, lineHeight: 1, padding: '5px 7px', background: emojiCat === c.key ? '#E9F9EF' : 'none', border: 'none', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}>
+                        {c.icon}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(34px, 1fr))', gap: 2, maxHeight: 190, overflowY: 'auto', padding: '6px 10px 10px' }}>
+                  {(emojiSearch.trim()
+                    ? EMOJIS
+                    : (EMOJI_CATEGORIES.find(c => c.key === emojiCat)?.emojis || EMOJIS)
+                  ).map((em, i) => (
+                    <button key={em + i} onClick={() => setText(t => t + em)}
+                      style={{ fontSize: 20, lineHeight: 1, padding: '5px 0', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
                       {em}
                     </button>
                   ))}
