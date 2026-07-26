@@ -191,7 +191,9 @@ export default function InboxPage() {
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [text, setText] = useState('')
   const [replyingTo, setReplyingTo] = useState<Msg | null>(null)
-  const [forwarding, setForwarding] = useState<Msg | null>(null)
+  const [forwardPick, setForwardPick] = useState<Msg | null>(null)   // pesan yg mau diteruskan → buka modal pilih tujuan
+  const [forwardSearch, setForwardSearch] = useState('')
+  const [forwardSending, setForwardSending] = useState<string | null>(null)
   const [viewer, setViewer] = useState<Msg | null>(null)
   const [sending, setSending] = useState(false)
   const [copilot, setCopilot] = useState<{ intent: string; suggestion: string } | null>(null)
@@ -433,20 +435,49 @@ export default function InboxPage() {
     }
   }, [active, loadMsgs])
 
+  // Teruskan pesan ke percakapan/kontak LAIN yang dipilih.
+  async function forwardTo(target: Conv) {
+    if (!forwardPick) return
+    setForwardSending(target.id)
+    try {
+      const res = await authFetch('/api/inbox/send', {
+        method: 'POST',
+        body: JSON.stringify({ conversation_id: target.id, text: forwardPick.body || '', forward: true }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) { alert(j.error || 'Gagal meneruskan'); return }
+      setForwardPick(null)
+      // Kalau kebetulan tujuannya percakapan yang sedang dibuka, refresh biar langsung muncul.
+      if (active && target.id === active.id) loadMsgs(active.id)
+    } finally { setForwardSending(null) }
+  }
+
+  // Esc: tutup overlay yang terbuka dulu; kalau tidak ada, batal pilih room (seperti WA).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      if (viewer) { setViewer(null); return }
+      if (forwardPick) { setForwardPick(null); return }
+      if (showEmoji) { setShowEmoji(false); return }
+      if (replyingTo) { setReplyingTo(null); return }
+      if (active) { setActive(null); setShowInfoMobile(false) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [viewer, forwardPick, showEmoji, replyingTo, active])
+
   async function send() {
     if (!active || !text.trim()) return
     setSending(true)
-    const optimistic: Msg = { id: `opt-${Date.now()}`, direction: 'out', body: text, sender: 'agent', created_at: new Date().toISOString(), status: 'sending', is_forwarded: !!forwarding, quoted: replyingTo ? { direction: replyingTo.direction, body: replyingTo.body, is_media: !!replyingTo.media_mime } : null }
+    const optimistic: Msg = { id: `opt-${Date.now()}`, direction: 'out', body: text, sender: 'agent', created_at: new Date().toISOString(), status: 'sending', quoted: replyingTo ? { direction: replyingTo.direction, body: replyingTo.body, is_media: !!replyingTo.media_mime } : null }
     setMsgs(prev => [...prev, optimistic])
     const textToSend = text
-    const wasReply = replyingTo
     setText('')
     setReplyingTo(null)
-    setForwarding(null)
     setShowQR(false)
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
     try {
-      const res = await authFetch('/api/inbox/send', { method: 'POST', body: JSON.stringify({ conversation_id: active.id, text: textToSend, reply_to: replyingTo?.wa_message_id || undefined, forward: forwarding ? true : undefined }) })
+      const res = await authFetch('/api/inbox/send', { method: 'POST', body: JSON.stringify({ conversation_id: active.id, text: textToSend, reply_to: replyingTo?.wa_message_id || undefined }) })
       const j = await res.json()
       if (!res.ok) {
         setMsgs(prev => prev.map(m => m.id === optimistic.id ? { ...m, status: 'failed' } : m))
@@ -592,6 +623,48 @@ export default function InboxPage() {
         @media (hover: none) { .msg-actions { opacity: 1; } }
       `}</style>
       {viewer && <MediaViewer m={viewer} onClose={() => setViewer(null)} />}
+
+      {forwardPick && (
+        <div onClick={() => setForwardPick(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 420, maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid #F0F0F0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#0D0D0D' }}>Teruskan ke…</div>
+                <button onClick={() => setForwardPick(null)} style={{ background: 'none', border: 'none', fontSize: 20, color: '#9CA3AF', cursor: 'pointer', lineHeight: 1 }}>×</button>
+              </div>
+              <div style={{ background: '#F7F7F7', borderRadius: 7, padding: '8px 10px', fontSize: 12, color: '#6B7280', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                📤 {forwardPick.body || (forwardPick.media_mime ? '📎 Lampiran' : 'Pesan')}
+              </div>
+              <input value={forwardSearch} onChange={e => setForwardSearch(e.target.value)} placeholder="Cari kontak…" autoFocus
+                style={{ width: '100%', padding: '8px 11px', border: '1px solid #E5E5E5', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {convs
+                .filter(c => {
+                  const ct = contactOf(c); const q = forwardSearch.toLowerCase().trim()
+                  if (!q) return true
+                  return (ct.name || '').toLowerCase().includes(q) || (ct.phone || '').includes(q)
+                })
+                .map(c => {
+                  const ct = contactOf(c)
+                  return (
+                    <div key={c.id} onClick={() => forwardSending ? null : forwardTo(c)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', borderBottom: '1px solid #F7F7F7', cursor: forwardSending ? 'wait' : 'pointer', opacity: forwardSending && forwardSending !== c.id ? 0.5 : 1 }}>
+                      <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#F0FDF4', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, flexShrink: 0 }}>
+                        {(ct.name || ct.phone || '?').charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#0D0D0D', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ct.name || ct.phone || 'Tanpa nama'}</div>
+                        {ct.name && <div style={{ fontSize: 11, color: '#9CA3AF' }}>{ct.phone}</div>}
+                      </div>
+                      {forwardSending === c.id && <span style={{ fontSize: 11, color: '#16A34A', flexShrink: 0 }}>mengirim…</span>}
+                    </div>
+                  )
+                })}
+            </div>
+          </div>
+        </div>
+      )}
       {/* LEFT: CONVERSATION LIST */}
       <div className="inbox-list" style={{ width: 280, borderRight: '1px solid #E5E5E5', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid #F0F0F0' }}>
@@ -749,12 +822,12 @@ export default function InboxPage() {
                       {m.body}
                     </div>
                     <div className="msg-actions" style={{ display: 'flex', gap: 10, marginTop: 3, justifyContent: m.direction === 'in' ? 'flex-start' : 'flex-end', paddingLeft: 2, paddingRight: 2 }}>
-                      <button onClick={() => { setForwarding(null); setReplyingTo(m); }}
+                      <button onClick={() => setReplyingTo(m)}
                         style={{ background: 'none', border: 'none', padding: 0, fontSize: 11, color: '#9CA3AF', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                         <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 3H8a2.5 2.5 0 010 5H4M6 3L4 1M6 3L4 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         Balas
                       </button>
-                      <button onClick={() => { setReplyingTo(null); setForwarding(m); setText(m.body || ''); }}
+                      <button onClick={() => { setForwardPick(m); setForwardSearch(''); }}
                         style={{ background: 'none', border: 'none', padding: 0, fontSize: 11, color: '#9CA3AF', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                         <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 9H4a2.5 2.5 0 010-5h4M6 9l2 2M6 9l2-2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         Teruskan
@@ -882,17 +955,17 @@ export default function InboxPage() {
               </div>
             )}
 
-            {(replyingTo || forwarding) && (
+            {replyingTo && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', background: '#F0FDF4', borderTop: '1px solid #E5E5E5', borderLeft: '3px solid #16A34A' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: '#15803D', marginBottom: 1 }}>
-                    {forwarding ? 'Meneruskan pesan' : `Membalas ${replyingTo?.direction === 'in' ? 'customer' : 'diri sendiri'}`}
+                    Membalas {replyingTo.direction === 'in' ? 'customer' : 'diri sendiri'}
                   </div>
                   <div style={{ fontSize: 12, color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {(forwarding || replyingTo)?.body || ((forwarding || replyingTo)?.media_mime ? '📎 Lampiran' : 'Pesan')}
+                    {replyingTo.body || (replyingTo.media_mime ? '📎 Lampiran' : 'Pesan')}
                   </div>
                 </div>
-                <button onClick={() => { setReplyingTo(null); setForwarding(null); if (forwarding) setText(''); }}
+                <button onClick={() => setReplyingTo(null)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: 18, lineHeight: 1, padding: 4, flexShrink: 0 }}>×</button>
               </div>
             )}
