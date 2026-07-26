@@ -31,7 +31,7 @@ function playNotifSound() {
 }
 
 type Conv = { id: string; status: string; last_message_at: string; tags?: string[]; contact: any }
-type Msg = { id: string; direction: string; body: string; sender: string; created_at: string; status?: string; type?: string; media_url?: string | null; media_mime?: string | null; media_filename?: string | null; is_forwarded?: boolean }
+type Msg = { id: string; direction: string; body: string; sender: string; created_at: string; status?: string; type?: string; media_url?: string | null; media_mime?: string | null; media_filename?: string | null; is_forwarded?: boolean; reply_to?: string | null; quoted?: { direction: string; type?: string; body?: string; is_media?: boolean } | null }
 type ContactDetail = { contact: any; stats: { total_messages_in: number; total_messages_out: number; total_conversations: number; days_since_first_contact: number | null; days_since_last_order: number | null } }
 type QuickReply = { id: string; shortcut: string; title: string; body: string }
 
@@ -638,6 +638,20 @@ export default function InboxPage() {
                         <div style={{ fontSize: 10, fontWeight: 600, color: '#16A34A', marginBottom: 3, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 4 }}>
                           <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M6 1L7.5 4.5L11 6L7.5 7.5L6 11L4.5 7.5L1 6L4.5 4.5L6 1Z" fill="#16A34A"/></svg>
                           AIRA AI
+                        </div>
+                      )}
+                      {m.quoted && (
+                        <div style={{
+                          borderLeft: `3px solid ${m.direction === 'out' && m.sender !== 'ai' ? 'rgba(255,255,255,0.6)' : '#16A34A'}`,
+                          background: m.direction === 'out' && m.sender !== 'ai' ? 'rgba(255,255,255,0.14)' : '#F0FDF4',
+                          borderRadius: 6, padding: '5px 9px', marginBottom: 5, maxWidth: '100%',
+                        }}>
+                          <div style={{ fontSize: 10, fontWeight: 600, marginBottom: 1, opacity: 0.85, color: m.direction === 'out' && m.sender !== 'ai' ? '#fff' : '#15803D' }}>
+                            {m.quoted.direction === 'in' ? 'Customer' : 'Kamu'}
+                          </div>
+                          <div style={{ fontSize: 12, opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 240 }}>
+                            {m.quoted.body ? m.quoted.body : (m.quoted.is_media ? '📎 Lampiran' : 'Pesan')}
+                          </div>
                         </div>
                       )}
                       {m.is_forwarded && (

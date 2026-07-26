@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
   let qy = supabaseAdmin
     .from('wa_messages')
-    .select('id, direction, type, body, media_url, media_mime, media_filename, is_forwarded, sender, status, created_at')
+    .select('id, direction, type, body, media_url, media_mime, media_filename, is_forwarded, reply_to, wa_message_id, sender, status, created_at')
     .eq('tenant_id', actor.tenantId)
     .eq('conversation_id', id)
     .order('created_at', { ascending: false })   // terbaru dulu
@@ -28,13 +28,47 @@ export async function GET(req: Request) {
 
   if (before) qy = qy.lt('created_at', before)   // muat yang lebih lama dari cursor
 
-  const { data } = await qy
-  const rows = data || []
+  const { data, error } = await qy
+  // Kalau kolom reply_to belum ada di DB, ulangi tanpa kolom itu (biar tetap jalan).
+  let rows: any[] = data || []
+  if (error) {
+    const retry = await supabaseAdmin
+      .from('wa_messages')
+      .select('id, direction, type, body, media_url, media_mime, media_filename, is_forwarded, sender, status, created_at')
+      .eq('tenant_id', actor.tenantId).eq('conversation_id', id)
+      .order('created_at', { ascending: false }).limit(PAGE)
+      .lt('created_at', before || '9999-12-31')
+    rows = retry.data || []
+  }
   const hasMore = rows.length === PAGE
+
+  // Resolusi pesan yang di-reply: cocokkan reply_to (wa_message_id) → isi pesan aslinya.
+  const replyIds = Array.from(new Set(rows.map((r: any) => r.reply_to).filter(Boolean)))
+  const quotedById: Record<string, any> = {}
+  if (replyIds.length) {
+    const { data: quoted } = await supabaseAdmin
+      .from('wa_messages')
+      .select('wa_message_id, direction, type, body, media_mime')
+      .eq('tenant_id', actor.tenantId).in('wa_message_id', replyIds)
+    for (const q of quoted || []) {
+      if (!q.wa_message_id) continue
+      quotedById[q.wa_message_id] = {
+        direction: q.direction,
+        type: q.type,
+        body: q.body,
+        is_media: !!q.media_mime,
+      }
+    }
+  }
+
+  const enriched = rows.map((r: any) => ({
+    ...r,
+    quoted: r.reply_to ? (quotedById[r.reply_to] || null) : null,
+  }))
 
   // Balik ke urutan kronologis (lama → baru) untuk ditampilkan
   return NextResponse.json({
-    messages: rows.slice().reverse(),
+    messages: enriched.slice().reverse(),
     has_more: hasMore,
     oldest: rows.length ? rows[rows.length - 1].created_at : null,
   })

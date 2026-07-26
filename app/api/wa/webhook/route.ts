@@ -164,6 +164,8 @@ async function handleInbound(auth: NumberAuth, phoneNumberId: string, msg: any, 
 
   const type: string = msg.type || 'text'
   const isForwarded = !!(msg.context?.forwarded || msg.context?.frequently_forwarded)
+  // ID pesan yang di-reply customer (kalau dia balas pesan tertentu di atas).
+  const replyToWaId: string | null = msg.context?.id || null
 
   // Ekstrak teks + media
   let bodyText = ''
@@ -259,7 +261,7 @@ async function handleInbound(auth: NumberAuth, phoneNumberId: string, msg: any, 
   }
 
   // Simpan pesan masuk (dengan media + flag forwarded)
-  await supabaseAdmin.from('wa_messages').insert({
+  const inRow: any = {
     tenant_id: auth.tenantId,
     conversation_id: conversationId,
     contact_id: contactId,
@@ -272,7 +274,14 @@ async function handleInbound(auth: NumberAuth, phoneNumberId: string, msg: any, 
     media_filename: mediaFilename,
     is_forwarded: isForwarded,
     sender: 'contact',
-  })
+  }
+  if (replyToWaId) inRow.reply_to = replyToWaId
+  const { error: insErr } = await supabaseAdmin.from('wa_messages').insert(inRow)
+  if (insErr && replyToWaId) {
+    // Kolom reply_to mungkin belum dibuat → simpan ulang tanpa kolom itu (jangan sampai pesan hilang).
+    delete inRow.reply_to
+    await supabaseAdmin.from('wa_messages').insert(inRow)
+  }
 
   // AI auto-reply — skip command opt-out & skip kalau cuma media tanpa teks
   const isOptCmd = STOP_WORDS.includes(kw) || START_WORDS.includes(kw)
