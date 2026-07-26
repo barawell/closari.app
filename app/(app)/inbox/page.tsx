@@ -64,40 +64,40 @@ function StatusIcon({ status }: { status?: string }) {
 // Emoji yang paling sering dipakai CS/sales (tanpa library tambahan).
 const EMOJI_CATEGORIES: { key: string; icon: string; emojis: string[] }[] = [
   {
-    key: 'Sering', icon: '🕘',
-    emojis: ['😊','😂','🙏','👍','❤️','🔥','✅','😍','🥰','😅','🙌','💯','🎉','😭','🤝','👌','💪','😎','🙈','✨'],
+    key: 'Smiley', icon: '\u{1F600}',
+    emojis: ['\u{1F600}','\u{1F603}','\u{1F604}','\u{1F601}','\u{1F606}','\u{1F605}','\u{1F923}','\u{1F602}','\u{1F642}','\u{1F643}','\u{1F609}','\u{1F60A}','\u{1F607}','\u{1F970}','\u{1F60D}','\u{1F929}','\u{1F618}','\u{1F617}','\u{263A}\u{FE0F}','\u{1F61A}','\u{1F619}','\u{1F972}','\u{1F60B}','\u{1F61B}','\u{1F61C}','\u{1F92A}','\u{1F61D}','\u{1F911}','\u{1F917}','\u{1F92D}','\u{1F92B}','\u{1F914}','\u{1F910}','\u{1F928}','\u{1F610}','\u{1F611}','\u{1F636}','\u{1F60F}','\u{1F612}','\u{1F644}','\u{1F62C}','\u{1F925}','\u{1F60C}','\u{1F614}','\u{1F62A}','\u{1F924}','\u{1F634}','\u{1F637}','\u{1F912}','\u{1F915}','\u{1F922}','\u{1F92E}','\u{1F927}','\u{1F975}','\u{1F976}','\u{1F974}','\u{1F635}','\u{1F92F}','\u{1F920}','\u{1F973}','\u{1F978}','\u{1F60E}','\u{1F913}','\u{1F9D0}','\u{1F615}','\u{1F61F}','\u{1F641}','\u{2639}\u{FE0F}','\u{1F62E}','\u{1F62F}','\u{1F632}','\u{1F633}','\u{1F97A}','\u{1F626}','\u{1F627}','\u{1F628}','\u{1F630}','\u{1F625}','\u{1F622}','\u{1F62D}','\u{1F631}','\u{1F616}','\u{1F623}','\u{1F61E}','\u{1F613}','\u{1F629}','\u{1F62B}','\u{1F971}','\u{1F624}','\u{1F621}','\u{1F620}','\u{1F92C}','\u{1F608}','\u{1F47F}','\u{1F480}','\u{1F4A9}','\u{1F921}','\u{1F479}','\u{1F47A}','\u{1F47B}','\u{1F47D}','\u{1F47E}','\u{1F916}','\u{1F63A}','\u{1F638}','\u{1F639}','\u{1F63B}','\u{1F63C}','\u{1F63D}','\u{1F640}','\u{1F63F}','\u{1F63E}'],
   },
   {
-    key: 'Wajah', icon: '😀',
-    emojis: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🤧','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','😟','🙁','☹️','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','💩','🤡','👻','👽','🤖'],
+    key: 'Gestur', icon: '\u{1F44B}',
+    emojis: ['\u{1F44B}','\u{1F91A}','\u{1F590}\u{FE0F}','\u{270B}','\u{1F596}','\u{1F44C}','\u{1F90C}','\u{1F90F}','\u{270C}\u{FE0F}','\u{1F91E}','\u{1F91F}','\u{1F918}','\u{1F919}','\u{1F448}','\u{1F449}','\u{1F446}','\u{1F595}','\u{1F447}','\u{261D}\u{FE0F}','\u{1F44D}','\u{1F44E}','\u{270A}','\u{1F44A}','\u{1F91B}','\u{1F91C}','\u{1F44F}','\u{1F64C}','\u{1F450}','\u{1F932}','\u{1F91D}','\u{1F64F}','\u{270D}\u{FE0F}','\u{1F485}','\u{1F933}','\u{1F4AA}','\u{1F9BE}','\u{1F9B5}','\u{1F9B6}','\u{1F442}','\u{1F443}','\u{1F9E0}','\u{1FAC0}','\u{1FAC1}','\u{1F9B7}','\u{1F9B4}','\u{1F440}','\u{1F441}\u{FE0F}','\u{1F445}','\u{1F444}','\u{1F476}','\u{1F9D2}','\u{1F466}','\u{1F467}','\u{1F9D1}','\u{1F468}','\u{1F469}','\u{1F9D3}','\u{1F474}','\u{1F475}','\u{1F64D}','\u{1F64E}','\u{1F645}','\u{1F646}','\u{1F481}','\u{1F64B}','\u{1F9CF}','\u{1F926}','\u{1F937}','\u{1F46E}','\u{1F575}\u{FE0F}','\u{1F482}','\u{1F477}','\u{1F934}','\u{1F478}','\u{1F470}','\u{1F935}','\u{1F930}','\u{1F929}','\u{1F473}','\u{1F472}','\u{1F9D5}','\u{1F9D4}','\u{1F471}','\u{1F9B8}','\u{1F9B9}','\u{1F9DE}','\u{1F9DF}','\u{1F646}','\u{1F937}','\u{1F486}','\u{1F487}','\u{1F6B6}','\u{1F9CD}','\u{1F9CE}','\u{1F3C3}','\u{1F483}','\u{1F57A}','\u{1F46F}','\u{1F9D6}','\u{1F9D7}'],
   },
   {
-    key: 'Gestur', icon: '👍',
-    emojis: ['👍','👎','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','👇','☝️','✋','🤚','🖐️','🖖','👋','🤝','🙏','✍️','💅','🤳','💪','🦾','🙌','👏','🙋','🤦','🤷','🧏','🙇','💁','🙅','🙆','🫶','🫰','🫵','👐','🤲','🫂'],
+    key: 'Hati', icon: '\u{2764}\u{FE0F}',
+    emojis: ['\u{2764}\u{FE0F}','\u{1F9E1}','\u{1F49B}','\u{1F49A}','\u{1F499}','\u{1F49C}','\u{1F5A4}','\u{1F90D}','\u{1F90E}','\u{1F494}','\u{2763}\u{FE0F}','\u{1F495}','\u{1F49E}','\u{1F493}','\u{1F497}','\u{1F496}','\u{1F498}','\u{1F49D}','\u{1F49F}','\u{2665}\u{FE0F}','\u{1F48C}','\u{1F48B}','\u{1F48D}','\u{1F48E}','\u{1F339}','\u{1F337}','\u{1F33B}','\u{1F33C}','\u{1F490}','\u{1F338}','\u{1F4AF}','\u{1F525}','\u{2B50}','\u{1F31F}','\u{2728}','\u{26A1}','\u{1F4A5}','\u{1F4AB}','\u{1F308}'],
   },
   {
-    key: 'Hati', icon: '❤️',
-    emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️','💌','😻','🥰','😍'],
+    key: 'Hewan', icon: '\u{1F436}',
+    emojis: ['\u{1F436}','\u{1F431}','\u{1F42D}','\u{1F439}','\u{1F430}','\u{1F98A}','\u{1F43B}','\u{1F43C}','\u{1F428}','\u{1F42F}','\u{1F981}','\u{1F42E}','\u{1F437}','\u{1F43D}','\u{1F438}','\u{1F435}','\u{1F648}','\u{1F649}','\u{1F64A}','\u{1F412}','\u{1F414}','\u{1F427}','\u{1F426}','\u{1F424}','\u{1F423}','\u{1F425}','\u{1F986}','\u{1F985}','\u{1F989}','\u{1F987}','\u{1F43A}','\u{1F417}','\u{1F434}','\u{1F984}','\u{1F41D}','\u{1F41B}','\u{1F98B}','\u{1F40C}','\u{1F41E}','\u{1F41C}','\u{1F997}','\u{1F577}\u{FE0F}','\u{1F982}','\u{1F422}','\u{1F40D}','\u{1F98E}','\u{1F995}','\u{1F996}','\u{1F419}','\u{1F991}','\u{1F990}','\u{1F980}','\u{1F421}','\u{1F420}','\u{1F41F}','\u{1F42C}','\u{1F433}','\u{1F40B}','\u{1F988}','\u{1F40A}','\u{1F405}','\u{1F406}','\u{1F993}','\u{1F98D}','\u{1F418}','\u{1F98F}','\u{1F42A}','\u{1F42B}','\u{1F992}','\u{1F998}','\u{1F403}','\u{1F402}','\u{1F404}','\u{1F40E}','\u{1F416}','\u{1F40F}','\u{1F411}','\u{1F410}','\u{1F98C}','\u{1F415}','\u{1F429}','\u{1F408}','\u{1F413}','\u{1F983}','\u{1F54A}\u{FE0F}','\u{1F407}','\u{1F401}','\u{1F400}','\u{1F43F}\u{FE0F}','\u{1F994}','\u{1F9A6}','\u{1F332}','\u{1F333}','\u{1F334}','\u{1F335}','\u{1F340}','\u{1F331}','\u{1F33F}','\u{2618}\u{FE0F}','\u{1F341}','\u{1F342}','\u{1F343}'],
   },
   {
-    key: 'Hewan', icon: '🐶',
-    emojis: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐢','🐍','🐙','🦑','🦐','🦀','🐬','🐳','🐟','🐠','🐡','🦈','🐊','🐅','🐆','🦓','🦍','🐘','🦏','🐪','🐫','🦒','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🐐','🦌','🐕','🐩','🐈','🐓','🦃','🕊️','🐇','🐁','🐿️','🦔'],
+    key: 'Makanan', icon: '\u{1F354}',
+    emojis: ['\u{1F34F}','\u{1F34E}','\u{1F350}','\u{1F34A}','\u{1F34B}','\u{1F34C}','\u{1F349}','\u{1F347}','\u{1F353}','\u{1FAD0}','\u{1F348}','\u{1F352}','\u{1F351}','\u{1F96D}','\u{1F34D}','\u{1F965}','\u{1F95D}','\u{1F345}','\u{1F346}','\u{1F951}','\u{1F966}','\u{1F96C}','\u{1F952}','\u{1F336}\u{FE0F}','\u{1F33D}','\u{1F955}','\u{1F9C4}','\u{1F9C5}','\u{1F954}','\u{1F360}','\u{1F950}','\u{1F35E}','\u{1F956}','\u{1F968}','\u{1F9C0}','\u{1F95A}','\u{1F373}','\u{1F9C8}','\u{1F95E}','\u{1F9C7}','\u{1F953}','\u{1F969}','\u{1F357}','\u{1F356}','\u{1F32D}','\u{1F354}','\u{1F35F}','\u{1F355}','\u{1F96A}','\u{1F32E}','\u{1F32F}','\u{1F959}','\u{1F9C6}','\u{1F35C}','\u{1F372}','\u{1F35B}','\u{1F363}','\u{1F371}','\u{1F95F}','\u{1F364}','\u{1F359}','\u{1F35A}','\u{1F358}','\u{1F365}','\u{1F960}','\u{1F362}','\u{1F361}','\u{1F367}','\u{1F368}','\u{1F366}','\u{1F967}','\u{1F9C1}','\u{1F370}','\u{1F382}','\u{1F36E}','\u{1F36D}','\u{1F36C}','\u{1F36B}','\u{1F37F}','\u{1F369}','\u{1F36A}','\u{1F330}','\u{1F95C}','\u{2615}','\u{1F375}','\u{1F9C3}','\u{1F964}','\u{1F9CB}','\u{1F376}','\u{1F37A}','\u{1F37B}','\u{1F377}','\u{1F942}','\u{1F943}','\u{1F379}','\u{1F378}'],
   },
   {
-    key: 'Makanan', icon: '🍔',
-    emojis: ['🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🌽','🥕','🧄','🧅','🥔','🍠','🥐','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🍗','🍖','🌭','🍔','🍟','🍕','🥪','🌮','🌯','🥙','🍜','🍲','🍛','🍣','🍱','🥟','🍤','🍙','🍚','🍘','🍥','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','☕','🍵','🧃','🥤','🧋','🍶','🍺','🍷','🥂','🥃','🍹'],
+    key: 'Aktivitas', icon: '\u{26BD}',
+    emojis: ['\u{26BD}','\u{1F3C0}','\u{1F3C8}','\u{26BE}','\u{1F94E}','\u{1F3BE}','\u{1F3D0}','\u{1F3C9}','\u{1F94D}','\u{1F3B1}','\u{1F3D3}','\u{1F3F8}','\u{1F3D2}','\u{1F3D1}','\u{1F94C}','\u{26F3}','\u{1F3F9}','\u{1F3A3}','\u{1F94A}','\u{1F94B}','\u{1F3BD}','\u{26F8}\u{FE0F}','\u{1F94C}','\u{1F6F7}','\u{1F3BF}','\u{26F7}\u{FE0F}','\u{1F3C2}','\u{1F3CB}\u{FE0F}','\u{1F93C}','\u{1F938}','\u{26F9}\u{FE0F}','\u{1F93A}','\u{1F93E}','\u{1F3CC}\u{FE0F}','\u{1F3C7}','\u{1F9D8}','\u{1F3C4}','\u{1F3CA}','\u{1F93D}','\u{1F6A3}','\u{1F6B4}','\u{1F6B5}','\u{1F3AF}','\u{1F3AE}','\u{1F3B2}','\u{1F3B3}','\u{1F3AA}','\u{1F3AD}','\u{1F3AC}','\u{1F3A4}','\u{1F3A7}','\u{1F3BC}','\u{1F3B9}','\u{1F941}','\u{1F3B7}','\u{1F3BA}','\u{1F3B8}','\u{1FA95}','\u{1F3BB}','\u{1F3C6}','\u{1F947}','\u{1F948}','\u{1F949}','\u{1F3C5}','\u{1F396}\u{FE0F}','\u{1F397}\u{FE0F}','\u{1F39F}\u{FE0F}','\u{1F3AB}'],
   },
   {
-    key: 'Aktivitas', icon: '⚽',
-    emojis: ['⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🎱','🏓','🏸','🥅','🏒','🏑','🏏','⛳','🏹','🎣','🥊','🥋','🎽','⛸️','🥌','🛷','🎿','⛷️','🏂','🏋️','🤼','🤸','⛹️','🤺','🤾','🏌️','🏇','🧘','🏄','🏊','🤽','🚣','🚴','🚵','🎯','🎮','🎲','🎳','🎪','🎬','🎤','🎧','🎼','🎹','🥁','🎷','🎺','🎸','🪕','🎻','🏆','🥇','🥈','🥉','🏅','🎖️'],
+    key: 'Perjalanan', icon: '\u{2708}\u{FE0F}',
+    emojis: ['\u{1F697}','\u{1F695}','\u{1F699}','\u{1F68C}','\u{1F68E}','\u{1F3CE}\u{FE0F}','\u{1F693}','\u{1F691}','\u{1F692}','\u{1F690}','\u{1F69A}','\u{1F69B}','\u{1F69C}','\u{1F6F5}','\u{1F3CD}\u{FE0F}','\u{1F6B2}','\u{1F6F4}','\u{1F6F9}','\u{1F68F}','\u{1F6A8}','\u{1F6A5}','\u{1F6A6}','\u{1F6A7}','\u{2693}','\u{26F5}','\u{1F6A4}','\u{1F6F3}\u{FE0F}','\u{26F4}\u{FE0F}','\u{1F6A2}','\u{2708}\u{FE0F}','\u{1F6E9}\u{FE0F}','\u{1F681}','\u{1F69F}','\u{1F6A0}','\u{1F683}','\u{1F68A}','\u{1F682}','\u{1F686}','\u{1F687}','\u{1F68D}','\u{1F684}','\u{1F685}','\u{1F6F0}\u{FE0F}','\u{1F680}','\u{1F6F8}','\u{1F30D}','\u{1F30E}','\u{1F30F}','\u{1F5FA}\u{FE0F}','\u{1F5FF}','\u{1F3D4}\u{FE0F}','\u{26F0}\u{FE0F}','\u{1F30B}','\u{1F3D5}\u{FE0F}','\u{1F3D6}\u{FE0F}','\u{1F3DC}\u{FE0F}','\u{1F3DD}\u{FE0F}','\u{1F3DE}\u{FE0F}','\u{1F3DF}\u{FE0F}','\u{1F3DB}\u{FE0F}','\u{1F3D7}\u{FE0F}','\u{1F3E0}','\u{1F3E1}','\u{1F3E2}','\u{1F3EC}','\u{1F3E3}','\u{1F3E5}','\u{1F3E6}','\u{1F3E8}','\u{1F3EA}','\u{1F3EB}','\u{1F3E9}','\u{1F492}','\u{1F3DB}\u{FE0F}','\u{26EA}','\u{1F54C}','\u{1F6D5}','\u{1F54D}','\u{26E9}\u{FE0F}','\u{1F5FC}','\u{1F3AA}','\u{1F305}','\u{1F304}','\u{1F303}','\u{1F3D9}\u{FE0F}','\u{1F306}','\u{1F307}','\u{1F309}','\u{2668}\u{FE0F}','\u{1F3A0}','\u{1F3A1}','\u{1F3A2}'],
   },
   {
-    key: 'Objek', icon: '💡',
-    emojis: ['⌚','📱','💻','⌨️','🖥️','🖨️','🖱️','💽','💾','📷','📸','📹','🎥','📞','☎️','📟','📠','📺','📻','⏰','⏱️','⏲️','🕐','⌛','⏳','🔋','🔌','💡','🔦','🕯️','🧯','🛢️','💸','💵','💴','💶','💷','💰','💳','🧾','💎','⚖️','🔧','🔨','⚙️','🧰','🔩','⛓️','🔗','📦','📫','📮','📝','📄','📃','📑','📊','📈','📉','🗂️','📅','📆','🗓️','📇','🗃️','🗄️','📋','📌','📍','📎','🖇️','📏','📐','✂️','🔒','🔓','🔑','🗝️'],
+    key: 'Objek', icon: '\u{1F4A1}',
+    emojis: ['\u{231A}','\u{1F4F1}','\u{1F4F2}','\u{1F4BB}','\u{2328}\u{FE0F}','\u{1F5A5}\u{FE0F}','\u{1F5A8}\u{FE0F}','\u{1F5B1}\u{FE0F}','\u{1F4BD}','\u{1F4BE}','\u{1F4BF}','\u{1F4C0}','\u{1F4FC}','\u{1F4F7}','\u{1F4F8}','\u{1F4F9}','\u{1F3A5}','\u{1F4FD}\u{FE0F}','\u{1F39E}\u{FE0F}','\u{1F4DE}','\u{260E}\u{FE0F}','\u{1F4DF}','\u{1F4E0}','\u{1F4FA}','\u{1F4FB}','\u{1F399}\u{FE0F}','\u{1F39A}\u{FE0F}','\u{1F39B}\u{FE0F}','\u{23F1}\u{FE0F}','\u{23F2}\u{FE0F}','\u{23F0}','\u{1F550}','\u{231B}','\u{23F3}','\u{1F50B}','\u{1F50C}','\u{1F4A1}','\u{1F526}','\u{1F56F}\u{FE0F}','\u{1F9EF}','\u{1F6E2}\u{FE0F}','\u{1F4B8}','\u{1F4B5}','\u{1F4B4}','\u{1F4B6}','\u{1F4B7}','\u{1F4B0}','\u{1F4B3}','\u{1F9FE}','\u{1F48E}','\u{2696}\u{FE0F}','\u{1F527}','\u{1F528}','\u{2699}\u{FE0F}','\u{1F9F0}','\u{1F529}','\u{26D3}\u{FE0F}','\u{1F517}','\u{1F4E6}','\u{1F4EB}','\u{1F4EE}','\u{1F4DD}','\u{1F4C4}','\u{1F4C3}','\u{1F4D1}','\u{1F4CA}','\u{1F4C8}','\u{1F4C9}','\u{1F5C2}\u{FE0F}','\u{1F4C5}','\u{1F4C6}','\u{1F5D3}\u{FE0F}','\u{1F4C7}','\u{1F5C3}\u{FE0F}','\u{1F5C4}\u{FE0F}','\u{1F4CB}','\u{1F4CC}','\u{1F4CD}','\u{1F4CE}','\u{1F587}\u{FE0F}','\u{1F4CF}','\u{1F4D0}','\u{2702}\u{FE0F}','\u{1F512}','\u{1F513}','\u{1F511}','\u{1F5DD}\u{FE0F}','\u{1F4D6}','\u{1F4DA}','\u{1F4CE}','\u{1F58A}\u{FE0F}','\u{270F}\u{FE0F}','\u{1F58D}\u{FE0F}'],
   },
   {
-    key: 'Simbol', icon: '✅',
-    emojis: ['✅','☑️','✔️','❌','⭕','❎','✳️','✴️','❇️','‼️','⁉️','❓','❔','❕','❗','⚠️','🚫','💯','🔥','⭐','🌟','✨','⚡','💥','💫','💦','💨','🎉','🎊','🏷️','🔖','💊','🩺','💉','🩹','🌡️','♻️','⚕️','🔞','📵','🔇','🔊','🔔','🔕','➕','➖','➗','✖️','💲','©️','®️','™️','🆗','🆕','🆓','🆙','🔝','🔙','▶️','⏸️','⏹️','⏺️','⏭️','⏮️','🔀','🔁','🔂','🕐','🕑','🕒','🕓','🕔','🕕'],
+    key: 'Simbol', icon: '\u{2705}',
+    emojis: ['\u{2705}','\u{2611}\u{FE0F}','\u{2714}\u{FE0F}','\u{274C}','\u{2B55}','\u{274E}','\u{2733}\u{FE0F}','\u{2734}\u{FE0F}','\u{2747}\u{FE0F}','\u{203C}\u{FE0F}','\u{2049}\u{FE0F}','\u{2753}','\u{2754}','\u{2755}','\u{2757}','\u{26A0}\u{FE0F}','\u{1F6AB}','\u{1F4AF}','\u{1F525}','\u{2B50}','\u{1F31F}','\u{2728}','\u{26A1}','\u{1F4A5}','\u{1F4AB}','\u{1F4A6}','\u{1F4A8}','\u{1F389}','\u{1F38A}','\u{1F3F7}\u{FE0F}','\u{1F516}','\u{1F48A}','\u{1FA79}','\u{1F489}','\u{1FA7A}','\u{1F321}\u{FE0F}','\u{267B}\u{FE0F}','\u{2695}\u{FE0F}','\u{1F51E}','\u{1F4F5}','\u{1F507}','\u{1F50A}','\u{1F514}','\u{1F515}','\u{2795}','\u{2796}','\u{2797}','\u{2716}\u{FE0F}','\u{1F4B2}','\u{00A9}\u{FE0F}','\u{00AE}\u{FE0F}','\u{2122}\u{FE0F}','\u{1F197}','\u{1F195}','\u{1F193}','\u{1F51D}','\u{25B6}\u{FE0F}','\u{23F8}\u{FE0F}','\u{23F9}\u{FE0F}','\u{23FA}\u{FE0F}','\u{23ED}\u{FE0F}','\u{23EE}\u{FE0F}','\u{1F500}','\u{1F501}','\u{1F502}','\u{2764}\u{FE0F}','\u{1F49B}','\u{1F49A}','\u{1F499}','\u{1F49C}','\u{1F5A4}','\u{1F90D}','\u{1F90E}','\u{1F494}','\u{1F1EE}\u{1F1E9}'],
   },
 ]
 const EMOJIS = EMOJI_CATEGORIES.flatMap(c => c.emojis)
@@ -214,7 +214,6 @@ export default function InboxPage() {
   const [hasOlder, setHasOlder] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [showEmoji, setShowEmoji] = useState(false)
-  const [emojiCat, setEmojiCat] = useState('Sering')
   const [emojiSearch, setEmojiSearch] = useState('')
   const [soundOn, setSoundOn] = useState(true)
   const [sendingMedia, setSendingMedia] = useState(false)
@@ -926,31 +925,40 @@ export default function InboxPage() {
             )}
 
             {showEmoji && (
-              <div style={{ background: '#FAFAFA', borderTop: '1px solid #E5E5E5' }}>
-                <div style={{ padding: '8px 12px 0' }}>
+              <div style={{ background: '#fff', borderTop: '1px solid #E5E5E5' }}>
+                <div style={{ padding: '10px 12px 8px' }}>
                   <input value={emojiSearch} onChange={e => setEmojiSearch(e.target.value)} placeholder="Cari emoji…"
-                    style={{ width: '100%', padding: '7px 11px', border: '1px solid #E5E5E5', borderRadius: 7, fontSize: 12, fontFamily: 'inherit', outline: 'none', background: '#fff', boxSizing: 'border-box' }} />
+                    style={{ width: '100%', padding: '8px 11px', border: '1px solid #E5E5E5', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: '#F7F7F7', boxSizing: 'border-box' }} />
                 </div>
-                {!emojiSearch.trim() && (
-                  <div style={{ display: 'flex', gap: 2, padding: '6px 10px 0', overflowX: 'auto' }}>
-                    {EMOJI_CATEGORIES.map(c => (
-                      <button key={c.key} onClick={() => setEmojiCat(c.key)} title={c.key}
-                        style={{ fontSize: 17, lineHeight: 1, padding: '5px 7px', background: emojiCat === c.key ? '#E9F9EF' : 'none', border: 'none', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}>
-                        {c.icon}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(34px, 1fr))', gap: 2, maxHeight: 190, overflowY: 'auto', padding: '6px 10px 10px' }}>
-                  {(emojiSearch.trim()
-                    ? EMOJIS
-                    : (EMOJI_CATEGORIES.find(c => c.key === emojiCat)?.emojis || EMOJIS)
-                  ).map((em, i) => (
-                    <button key={em + i} onClick={() => setText(t => t + em)}
-                      style={{ fontSize: 20, lineHeight: 1, padding: '5px 0', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-                      {em}
-                    </button>
-                  ))}
+                <div style={{ maxHeight: 244, overflowY: 'auto', padding: '0 8px 10px' }}>
+                  {emojiSearch.trim() ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)' }}>
+                      {EMOJIS.map((em, i) => (
+                        <button key={em + i} onClick={() => setText(t => t + em)}
+                          style={{ aspectRatio: '1', fontSize: 23, lineHeight: 1, background: 'none', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#F0F0F0')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                          {em}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    EMOJI_CATEGORIES.map(cat => (
+                      <div key={cat.key}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '10px 4px 4px' }}>{cat.key}</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)' }}>
+                          {cat.emojis.map((em, i) => (
+                            <button key={em + i} onClick={() => setText(t => t + em)}
+                              style={{ aspectRatio: '1', fontSize: 23, lineHeight: 1, background: 'none', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                              onMouseEnter={e => (e.currentTarget.style.background = '#F0F0F0')}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                              {em}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
