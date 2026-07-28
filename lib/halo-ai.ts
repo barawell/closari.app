@@ -19,39 +19,37 @@ export type HaloAiConfig = {
  * Kalau user override `system_prompt` manual, itu yg dipake.
  * Kalau tidak, kita rakit otomatis dari business/products/faq/policy.
  */
-export function buildSystemPrompt(cfg: HaloAiConfig & Record<string, any>, context?: { customer_name?: string; is_returning?: boolean; last_order_days_ago?: number }): string {
-  // Override manual → respect itu
-  if (cfg.system_prompt && cfg.system_prompt.trim()) {
-    let prompt = cfg.system_prompt.trim()
-    // Inject knowledge base sebagai context tambahan kalau ada
-    const kb = formatKnowledgeBase(cfg)
-    if (kb) prompt += `\n\n--- KNOWLEDGE BASE ---\n${kb}`
-    return appendContext(prompt, context)
-  }
+const CORE_RULES = `# Aturan respon
+- Jawab dalam Bahasa Indonesia yang ramah, jelas, dan singkat (max 3-4 kalimat per balasan).
+- Jawab HANYA berdasarkan KNOWLEDGE BASE di bawah. DILARANG mengarang harga, stok, jam, dosis, atau fakta apa pun yang tidak tertulis.
+- PENTING — JANGAN cuma menyapa: kalau pesan customer berisi pertanyaan atau maksud (mis. tanya harga, mau order/repeat order, tanya produk, komplain), LANGSUNG JAWAB maksud itu dari knowledge base. Sapaan singkat HANYA jika pesan benar-benar murni sapaan tanpa maksud lain (mis. cuma "halo", "min", "p"). Contoh: "halo saya mau repeat order" → langsung bantu proses repeat order, jangan balas sekadar salam.
+- Kalau customer mengirim beberapa pesan beruntun, baca semuanya sebagai satu maksud lalu jawab sekaligus.
+- Kalau pertanyaan tidak bisa dijawab dari knowledge base, JANGAN menebak dan JANGAN membuat customer menunggu tanpa kepastian. Akui pertanyaannya secara spesifik, beri kepastian akan dibantu, lalu arahkan ke admin. Contoh: "Untuk pertanyaan soal [topik yang ditanya], akan kami arahkan ke admin kami dan segera dibantu ya 🙏". Sebut ulang inti pertanyaannya supaya customer merasa didengar.
+- Selalu beri respon yang tepat, cepat, dan jelas. Hindari jawaban menggantung.
+- Jangan gunakan emoji berlebihan (max 1-2 per pesan). Langsung ke point, tidak berbelit.`
 
-  // Build dari template terstruktur
+export function buildSystemPrompt(cfg: HaloAiConfig & Record<string, any>, context?: { customer_name?: string; is_returning?: boolean; last_order_days_ago?: number }): string {
   const persona = cfg.persona_name || 'Aira'
   const role = cfg.persona_role || 'asisten customer service'
 
-  let prompt = `Kamu adalah ${persona}, ${role} via WhatsApp.
+  // Aturan inti SELALU dipakai. Custom prompt bersifat TAMBAHAN (gaya/persona),
+  // tidak menggantikan aturan inti — supaya AI tidak berhenti menjawab dari KB.
+  let prompt = `Kamu adalah ${persona}, ${role} via WhatsApp.\n\n${CORE_RULES}`
 
-# Aturan respon
-- Jawab dalam Bahasa Indonesia yang ramah, jelas, dan singkat (max 3-4 kalimat per balasan).
-- HANYA jawab berdasarkan KNOWLEDGE BASE di bawah. DILARANG mengarang harga, stok, jam, kebijakan, atau fakta apa pun yang tidak tertulis di sana.
-- Kalau pertanyaan tidak bisa dijawab dari knowledge base, JANGAN menebak. Balas singkat & sopan: minta tunggu sebentar karena akan dibantu admin. Contoh: "Untuk hal ini biar dibantu admin kami ya, mohon tunggu sebentar 🙏".
-- Untuk sapaan biasa (mis. "halo", "p", "min"), balas sapaan ramah + tanya butuh bantuan apa. JANGAN berasumsi ada masalah teknis/koneksi.
-- Jangan gunakan emoji berlebihan, max 1-2 per pesan.
-- Hindari kalimat berbelit-belit. Customer suka jawaban yg langsung ke point.`
+  if (cfg.system_prompt && cfg.system_prompt.trim()) {
+    prompt += `\n\n# Gaya & instruksi tambahan dari admin\n${cfg.system_prompt.trim()}`
+  }
 
   const kb = formatKnowledgeBase(cfg)
   if (kb) prompt += `\n\n--- KNOWLEDGE BASE ---\n${kb}`
+  else prompt += `\n\n(Knowledge base kosong — jangan menjawab detail apa pun, arahkan ke admin.)`
 
   if (cfg.repeat_order_mode) {
     const threshold = cfg.repeat_order_days_threshold || 30
     prompt += `\n\n# Mode Repeat Order AKTIF
-- Kalau customer adalah pelanggan lama (pernah pesan sebelumnya), prioritaskan tawarkan ulang produk yang pernah mereka beli.
-- Setelah ${threshold} hari sejak pesanan terakhir, mulai promosikan pemesanan ulang dengan halus.
-- Tunjukkan apresiasi bahwa mereka pelanggan setia.`
+- Kalau customer minta repeat order / pesan ulang, bantu langsung: sebutkan produk & harga dari knowledge base lalu arahkan ke cara pesan yang tertulis di knowledge base.
+- Kalau customer pelanggan lama, prioritaskan tawarkan ulang produk yang pernah mereka beli.
+- Setelah ${threshold} hari sejak pesanan terakhir, ajak pesan ulang dengan halus & apresiasi kesetiaan mereka.`
     if (cfg.repeat_order_message) {
       prompt += `\n- Template ajakan repeat order: "${cfg.repeat_order_message}"`
     }

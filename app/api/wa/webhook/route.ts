@@ -301,15 +301,17 @@ async function maybeAiReply(auth: NumberAuth, phoneNumberId: string, conversatio
     return
   }
 
-  const cd = Number(cfg.cooldown_min) || 0
-  if (cd > 0) {
-    const since = new Date(Date.now() - cd * 60000).toISOString()
-    const { data: recent } = await supabaseAdmin
-      .from('wa_messages').select('id')
-      .eq('conversation_id', conversationId).eq('sender', 'ai').gte('created_at', since)
-      .limit(1).maybeSingle()
-    if (recent) return
-  }
+  // Debounce singkat: cegah balasan dobel saat pesan masuk hampir bersamaan,
+  // TAPI jangan bikin bot diam bermenit-menit. Balas cepat ke pertanyaan baru.
+  // (cooldown_min dari setting lama dipakai sebagai batas atas, tapi minimal responsif.)
+  const cdMin = Number(cfg.cooldown_min) || 0
+  const debounceSec = cdMin > 0 ? Math.min(cdMin * 60, 20) : 12
+  const since = new Date(Date.now() - debounceSec * 1000).toISOString()
+  const { data: recent } = await supabaseAdmin
+    .from('wa_messages').select('id')
+    .eq('conversation_id', conversationId).eq('sender', 'ai').gte('created_at', since)
+    .limit(1).maybeSingle()
+  if (recent) return
 
   const { data: hist } = await supabaseAdmin
     .from('wa_messages').select('direction, body')
@@ -319,7 +321,24 @@ async function maybeAiReply(auth: NumberAuth, phoneNumberId: string, conversatio
     .filter((m: any) => m.body)
     .map((m: any) => ({ role: m.direction === 'in' ? 'user' : 'assistant', content: String(m.body) }))
 
-  const reply = await generateReply(cfg as AiConfig, turns)
+  // Konteks pelanggan → biar mode repeat order & sapaan lebih personal.
+  let ctx: { customer_name?: string; is_returning?: boolean; last_order_days_ago?: number } | undefined
+  if (contactId) {
+    const { data: ct } = await supabaseAdmin
+      .from('wa_contacts').select('name, order_count, last_order_at')
+      .eq('id', contactId).maybeSingle()
+    if (ct) {
+      ctx = {}
+      if (ct.name) ctx.customer_name = ct.name
+      if ((ct.order_count || 0) > 0 || ct.last_order_at) ctx.is_returning = true
+      if (ct.last_order_at) {
+        const days = Math.floor((Date.now() - new Date(ct.last_order_at).getTime()) / 86400000)
+        if (Number.isFinite(days) && days >= 0) ctx.last_order_days_ago = days
+      }
+    }
+  }
+
+  const reply = await generateReply(cfg as AiConfig, turns, ctx)
   if (!reply) return
 
   const r = await sendText(phoneNumberId, auth.accessToken, to, reply)
