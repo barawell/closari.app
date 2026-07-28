@@ -337,12 +337,16 @@ async function maybeAiReply(auth: NumberAuth, phoneNumberId: string, conversatio
     return
   }
 
+  // Ambil 14 pesan TERBARU (bukan terlama) lalu balik ke urutan kronologis.
+  // Bug lama: ascending+limit mengambil pesan PALING LAMA, jadi AI kebawa
+  // history basi (mis. greeting-loop lama) dan mengabaikan konteks terbaru.
   const { data: hist } = await supabaseAdmin
-    .from('wa_messages').select('direction, body')
+    .from('wa_messages').select('direction, body, created_at')
     .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true }).limit(14)
+    .order('created_at', { ascending: false }).limit(14)
   const turns: Turn[] = (hist || [])
     .filter((m: any) => m.body)
+    .reverse()
     .map((m: any) => ({ role: m.direction === 'in' ? 'user' : 'assistant', content: String(m.body) }))
 
   // Konteks pelanggan → biar mode repeat order & sapaan lebih personal.
