@@ -301,17 +301,30 @@ async function maybeAiReply(auth: NumberAuth, phoneNumberId: string, conversatio
     return
   }
 
-  // Debounce singkat: cegah balasan dobel saat pesan masuk hampir bersamaan,
-  // TAPI jangan bikin bot diam bermenit-menit. Balas cepat ke pertanyaan baru.
-  // (cooldown_min dari setting lama dipakai sebagai batas atas, tapi minimal responsif.)
-  const cdMin = Number(cfg.cooldown_min) || 0
-  const debounceSec = cdMin > 0 ? Math.min(cdMin * 60, 20) : 12
-  const since = new Date(Date.now() - debounceSec * 1000).toISOString()
-  const { data: recent } = await supabaseAdmin
+  // Balas kalau customer memang sedang MENUNGGU: pesan paling baru di percakapan
+  // adalah pesan masuk. Begitu Aira sudah balas (pesan terbaru jadi 'out'),
+  // pemanggilan duplikat otomatis berhenti. Ini bikin setiap pertanyaan baru
+  // dibalas cepat, TANPA membungkam follow-up seperti debounce berbasis waktu.
+  const { data: last } = await supabaseAdmin
+    .from('wa_messages').select('direction, sender')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: false }).limit(1).maybeSingle()
+  if (!last || last.direction !== 'in') return
+
+  // HUMAN AGENT TAKEOVER:
+  // Kalau ada sales/human agent yang balas manual (sender='agent') dalam
+  // HUMAN_ACTIVE_MIN menit terakhir → berarti human sedang menangani, AI DIAM.
+  // Kalau human sudah diam lebih lama (tidak merespon) → AI ambil alih & balas.
+  const HUMAN_ACTIVE_MIN = Number(cfg.human_takeover_min) || 3
+  const humanSince = new Date(Date.now() - HUMAN_ACTIVE_MIN * 60000).toISOString()
+  const { data: humanRecent } = await supabaseAdmin
     .from('wa_messages').select('id')
-    .eq('conversation_id', conversationId).eq('sender', 'ai').gte('created_at', since)
-    .limit(1).maybeSingle()
-  if (recent) return
+    .eq('conversation_id', conversationId).eq('sender', 'agent')
+    .gte('created_at', humanSince).limit(1).maybeSingle()
+  if (humanRecent) {
+    console.log('[closari ai] skip: human agent sedang aktif, conv', conversationId)
+    return
+  }
 
   const { data: hist } = await supabaseAdmin
     .from('wa_messages').select('direction, body')

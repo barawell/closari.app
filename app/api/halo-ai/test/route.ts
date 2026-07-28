@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       method: 'POST',
       headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: finalConfig.model || 'claude-haiku-4-5',
+        model: finalConfig.model || 'claude-sonnet-5',
         max_tokens: 600,
         system,
         messages,

@@ -29,7 +29,7 @@ export async function GET(req: Request) {
       repeat_order_days_threshold: 30,
       repeat_order_message: null,
       cooldown_min: 0,
-      model: 'claude-haiku-4-5',
+      model: 'claude-sonnet-5',
     }
   })
 }
@@ -53,7 +53,7 @@ export async function PUT(req: Request) {
     repeat_order_days_threshold: Number.isFinite(+b.repeat_order_days_threshold) ? +b.repeat_order_days_threshold : 30,
     repeat_order_message: b.repeat_order_message || null,
     cooldown_min: Number.isFinite(+b.cooldown_min) ? +b.cooldown_min : 0,
-    model: b.model || 'claude-haiku-4-5',
+    model: b.model || 'claude-sonnet-5',
     updated_at: new Date().toISOString(),
   }
   const { error } = await supabaseAdmin.from('ai_configs').upsert(patch, { onConflict: 'tenant_id' })

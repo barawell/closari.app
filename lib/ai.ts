@@ -49,8 +49,8 @@ export async function generateReply(
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: config.model || 'claude-haiku-4-5',
-        max_tokens: 500,
+        model: config.model || 'claude-sonnet-5',
+        max_tokens: 320,
         system,
         messages,
       }),

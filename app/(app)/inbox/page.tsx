@@ -465,6 +465,19 @@ export default function InboxPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [viewer, forwardPick, showEmoji, replyingTo, active])
 
+  // Loncat ke pesan yang di-reply (klik kutipan) + kedip highlight sebentar.
+  function scrollToMessage(waId: string) {
+    const el = document.querySelector(`[data-mid="${waId}"]`) as HTMLElement | null
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const bubble = el.firstElementChild as HTMLElement | null
+    const target = bubble || el
+    const prev = target.style.transition
+    target.style.transition = 'background-color 0.25s'
+    target.style.backgroundColor = 'rgba(22,163,74,0.16)'
+    setTimeout(() => { target.style.backgroundColor = ''; target.style.transition = prev }, 1100)
+  }
+
   async function send() {
     if (!active || !text.trim()) return
     setSending(true)
@@ -777,7 +790,7 @@ export default function InboxPage() {
                 </div>
               )}
               {msgs.map(m => (
-                <div key={m.id} className="msg-row" style={{ display: 'flex', justifyContent: m.direction === 'in' ? 'flex-start' : 'flex-end' }}>
+                <div key={m.id} className="msg-row" data-mid={m.wa_message_id || ''} style={{ display: 'flex', justifyContent: m.direction === 'in' ? 'flex-start' : 'flex-end' }}>
                   <div style={{ maxWidth: '70%' }}>
                     <div style={{
                       padding: '9px 13px', borderRadius: 10,
@@ -794,10 +807,11 @@ export default function InboxPage() {
                         </div>
                       )}
                       {m.quoted && (
-                        <div style={{
+                        <div onClick={() => m.reply_to && scrollToMessage(m.reply_to)} style={{
                           borderLeft: `3px solid ${m.direction === 'out' && m.sender !== 'ai' ? 'rgba(255,255,255,0.6)' : '#16A34A'}`,
                           background: m.direction === 'out' && m.sender !== 'ai' ? 'rgba(255,255,255,0.14)' : '#F0FDF4',
                           borderRadius: 6, padding: '5px 9px', marginBottom: 5, maxWidth: '100%',
+                          cursor: m.reply_to ? 'pointer' : 'default',
                         }}>
                           <div style={{ fontSize: 10, fontWeight: 600, marginBottom: 1, opacity: 0.85, color: m.direction === 'out' && m.sender !== 'ai' ? '#fff' : '#15803D' }}>
                             {m.quoted.direction === 'in' ? 'Customer' : 'Kamu'}

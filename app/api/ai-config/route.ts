@@ -20,7 +20,7 @@ export async function PUT(req: Request) {
     enabled: !!b.enabled,
     persona_name: b.persona_name || null,
     system_prompt: b.system_prompt || null,
-    model: b.model || 'claude-haiku-4-5',
+    model: b.model || 'claude-sonnet-5',
     cooldown_min: Number.isFinite(+b.cooldown_min) ? +b.cooldown_min : 0,
     updated_at: new Date().toISOString(),
   }
