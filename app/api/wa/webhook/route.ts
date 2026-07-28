@@ -311,6 +311,17 @@ async function maybeAiReply(auth: NumberAuth, phoneNumberId: string, conversatio
     .order('created_at', { ascending: false }).limit(1).maybeSingle()
   if (!last || last.direction !== 'in') return
 
+  // AMBIL ALIH EKSPLISIT: kalau human agent nge-lock percakapan ini, AI diam total.
+  // Toleran: kalau kolom ai_paused belum ada, abaikan (anggap tidak di-lock).
+  try {
+    const { data: cv } = await supabaseAdmin
+      .from('wa_conversations').select('ai_paused').eq('id', conversationId).maybeSingle()
+    if ((cv as any)?.ai_paused) {
+      console.log('[closari ai] skip: percakapan di-ambil alih human, conv', conversationId)
+      return
+    }
+  } catch { /* kolom belum ada → lanjut */ }
+
   // HUMAN AGENT TAKEOVER:
   // Kalau ada sales/human agent yang balas manual (sender='agent') dalam
   // HUMAN_ACTIVE_MIN menit terakhir → berarti human sedang menangani, AI DIAM.

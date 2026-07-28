@@ -30,7 +30,7 @@ function playNotifSound() {
   } catch { /* ignore */ }
 }
 
-type Conv = { id: string; status: string; last_message_at: string; tags?: string[]; contact: any }
+type Conv = { id: string; status: string; last_message_at: string; tags?: string[]; ai_paused?: boolean; contact: any }
 type Msg = { id: string; wa_message_id?: string | null; direction: string; body: string; sender: string; created_at: string; status?: string; type?: string; media_url?: string | null; media_mime?: string | null; media_filename?: string | null; is_forwarded?: boolean; reply_to?: string | null; quoted?: { direction: string; type?: string; body?: string; is_media?: boolean } | null }
 type ContactDetail = { contact: any; stats: { total_messages_in: number; total_messages_out: number; total_conversations: number; days_since_first_contact: number | null; days_since_last_order: number | null } }
 type QuickReply = { id: string; shortcut: string; title: string; body: string }
@@ -225,6 +225,8 @@ export default function InboxPage() {
   const [locErr, setLocErr] = useState<string | null>(null)
   const [tenantId, setTenantId] = useState<string | null>(null)
   const [showInfoMobile, setShowInfoMobile] = useState(false)
+  const [pausedMap, setPausedMap] = useState<Record<string, boolean>>({})
+  const [togglingAi, setTogglingAi] = useState(false)
   const [readMap, setReadMap] = useState<Record<string, number>>({})
   const seededRef = useRef(false)
   const tenantIdRef = useRef<string | null>(null)
@@ -476,6 +478,27 @@ export default function InboxPage() {
     target.style.transition = 'background-color 0.25s'
     target.style.backgroundColor = 'rgba(22,163,74,0.16)'
     setTimeout(() => { target.style.backgroundColor = ''; target.style.transition = prev }, 1100)
+  }
+
+  // Ambil alih / kembalikan ke AI untuk percakapan aktif.
+  async function toggleAiHandover() {
+    if (!active || togglingAi) return
+    const current = pausedMap[active.id] ?? active.ai_paused ?? false
+    const next = !current
+    setTogglingAi(true)
+    setPausedMap(prev => ({ ...prev, [active.id]: next }))   // optimistic
+    try {
+      const res = await authFetch('/api/inbox/ai-toggle', {
+        method: 'POST', body: JSON.stringify({ conversation_id: active.id, paused: next }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        alert(j.error || 'Gagal mengubah status AI')
+        setPausedMap(prev => ({ ...prev, [active.id]: current }))   // rollback
+      }
+    } catch {
+      setPausedMap(prev => ({ ...prev, [active.id]: current }))
+    } finally { setTogglingAi(false) }
   }
 
   async function send() {
@@ -775,6 +798,19 @@ export default function InboxPage() {
                 <div style={{ fontWeight: 500, fontSize: 14, color: '#0D0D0D' }}>{contactOf(active).name || contactOf(active).phone}</div>
                 <div style={{ fontSize: 12, color: '#9CA3AF' }}>{contactOf(active).phone}</div>
               </div>
+              {(() => {
+                const paused = pausedMap[active.id] ?? active.ai_paused ?? false
+                return (
+                  <button onClick={toggleAiHandover} disabled={togglingAi} title={paused ? 'AI sedang nonaktif — kamu yang pegang chat ini' : 'Ambil alih chat ini dari AI'}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 500, cursor: togglingAi ? 'wait' : 'pointer', fontFamily: 'inherit', flexShrink: 0,
+                      border: `1px solid ${paused ? '#FCA5A5' : '#BBF7D0'}`,
+                      background: paused ? '#FEF2F2' : '#F0FDF4',
+                      color: paused ? '#DC2626' : '#15803D' }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: paused ? '#DC2626' : '#16A34A', flexShrink: 0 }} />
+                    {paused ? 'Kembalikan ke AI' : 'Ambil alih'}
+                  </button>
+                )
+              })()}
               <button onClick={() => setShowInfoMobile(true)} className="inbox-mobile-only" aria-label="Info kontak" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#6B7280' }}>
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5"/><path d="M10 9v4M10 6.5v.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
               </button>

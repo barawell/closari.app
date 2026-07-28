@@ -19,7 +19,7 @@ export async function GET(req: Request) {
   const t = actor.tenantId
 
   // PENTING: jangan select `tags` dari wa_conversations (kolom itu tidak ada).
-  const SELECT = 'id, status, last_message_at, contact:wa_contacts(id, phone, name, opted_out, tags, last_order_at)'
+  const SELECT = 'id, status, last_message_at, ai_paused, contact:wa_contacts(id, phone, name, opted_out, tags, last_order_at)'
 
   // ── Mode CARI ────────────────────────────────────────────────
   if (q) {

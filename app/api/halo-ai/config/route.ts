@@ -56,7 +56,14 @@ export async function PUT(req: Request) {
     model: b.model || 'claude-sonnet-5',
     updated_at: new Date().toISOString(),
   }
-  const { error } = await supabaseAdmin.from('ai_configs').upsert(patch, { onConflict: 'tenant_id' })
+  if (Number.isFinite(+b.human_takeover_min)) patch.human_takeover_min = +b.human_takeover_min
+  let { error } = await supabaseAdmin.from('ai_configs').upsert(patch, { onConflict: 'tenant_id' })
+  if (error && 'human_takeover_min' in patch) {
+    // Kolom human_takeover_min mungkin belum ada → simpan tanpa itu (setting lain tetap tersimpan).
+    delete patch.human_takeover_min
+    const retry = await supabaseAdmin.from('ai_configs').upsert(patch, { onConflict: 'tenant_id' })
+    error = retry.error
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

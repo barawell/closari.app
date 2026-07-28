@@ -16,6 +16,7 @@ type Config = {
   repeat_order_days_threshold: number
   repeat_order_message: string
   cooldown_min: number
+  human_takeover_min: number
   model: string
 }
 
@@ -32,6 +33,7 @@ const DEFAULT: Config = {
   repeat_order_days_threshold: 30,
   repeat_order_message: '',
   cooldown_min: 0,
+  human_takeover_min: 3,
   model: 'claude-haiku-4-5',
 }
 
@@ -219,12 +221,13 @@ export default function HaloAiPage() {
                 <label style={labelStyle}>Model AI</label>
                 <select value={cfg.model} onChange={e => update('model', e.target.value)} style={inputStyle}>
                   <option value="claude-haiku-4-5">Claude Haiku 4.5 (cepat, hemat)</option>
-                  <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (lebih cerdas)</option>
+                  <option value="claude-sonnet-5">Claude Sonnet 5 (tercerdas — rekomendasi)</option>
                 </select>
               </div>
               <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Cooldown (menit antar reply ke kontak yg sama)</label>
-                <input type="number" value={cfg.cooldown_min} onChange={e => update('cooldown_min', +e.target.value)} min={0} max={60} style={inputStyle} />
+                <label style={labelStyle}>AI ambil alih setelah human diam (menit)</label>
+                <input type="number" value={cfg.human_takeover_min} onChange={e => update('human_takeover_min', +e.target.value)} min={1} max={60} style={inputStyle} />
+                <div style={helpStyle}>Kalau sales/admin balas manual, AI diam. Setelah sekian menit tanpa balasan human, AI ambil alih.</div>
               </div>
             </div>
 
