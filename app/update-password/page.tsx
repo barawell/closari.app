@@ -13,6 +13,7 @@ function UpdatePasswordInner() {
   const [err, setErr] = useState('')
   const [ready, setReady] = useState(false)
   const [authedEmail, setAuthedEmail] = useState('')
+  const [showPass, setShowPass] = useState(false)
 
   // Handle code exchange CLIENT-SIDE supaya session cookie ke-set di browser.
   // Bug sebelumnya: server-side exchangeCodeForSession tidak persist cookie,
@@ -74,12 +75,22 @@ function UpdatePasswordInner() {
         <p style={{ fontSize: 12, color: '#16A34A', marginBottom: 24 }}>Untuk akun: {authedEmail}</p>
       )}
 
-      <label style={{ display: 'block', fontSize: 13, color: '#374151', fontWeight: 500, marginBottom: 6 }}>Password baru</label>
-      <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <label style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>Password baru</label>
+        <button type="button" onClick={() => setShowPass(s => !s)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: '#16A34A', fontFamily: 'inherit', fontWeight: 500 }}>
+          {showPass ? (
+            <><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 2l12 12M6.7 6.7a2 2 0 002.6 2.6M4.6 4.6C2.9 5.6 1.5 8 1.5 8s2.5 4 6.5 4c1 0 1.9-.2 2.7-.6M9.5 4.2C9 4.1 8.5 4 8 4c-4 0-6.5 4-6.5 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>Sembunyikan</>
+          ) : (
+            <><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M1.5 8s2.5-4 6.5-4 6.5 4 6.5 4-2.5 4-6.5 4-6.5-4-6.5-4z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><circle cx="8" cy="8" r="1.8" stroke="currentColor" strokeWidth="1.3"/></svg>Lihat</>
+          )}
+        </button>
+      </div>
+      <input type={showPass ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
         style={{ width: '100%', padding: '9px 12px', border: '1px solid #E5E5E5', borderRadius: 7, fontSize: 14, color: '#0D0D0D', background: '#fff', outline: 'none', boxSizing: 'border-box', marginBottom: 12 }} />
 
       <label style={{ display: 'block', fontSize: 13, color: '#374151', fontWeight: 500, marginBottom: 6 }}>Konfirmasi password</label>
-      <input type="password" placeholder="••••••••" value={confirm} onChange={e => setConfirm(e.target.value)}
+      <input type={showPass ? 'text' : 'password'} placeholder="••••••••" value={confirm} onChange={e => setConfirm(e.target.value)}
         onKeyDown={e => e.key === 'Enter' && submit()}
         style={{ width: '100%', padding: '9px 12px', border: '1px solid #E5E5E5', borderRadius: 7, fontSize: 14, color: '#0D0D0D', background: '#fff', outline: 'none', boxSizing: 'border-box', marginBottom: 8 }} />
 
