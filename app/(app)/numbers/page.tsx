@@ -76,6 +76,15 @@ export default function NumbersPage() {
     } finally { setSubscribing(false) }
   }
 
+  async function hapusNomor(id: string, label: string) {
+    if (!confirm(`Hapus nomor ini?\n\n${label}\n\nNomor & token-nya akan dihapus dari workspace. Kalau ini nomor duplikat/salah, aman dihapus. Nomor yang benar tidak terpengaruh.`)) return
+    setMsg('')
+    const res = await authFetch(`/api/numbers?id=${id}`, { method: 'DELETE' })
+    const j = await res.json().catch(() => ({}))
+    if (res.ok) { setMsg('Nomor dihapus.'); setMsgType('ok'); if (diagFor === id) setDiagFor(null); load() }
+    else { setMsg(j.error || 'Gagal menghapus'); setMsgType('err') }
+  }
+
   const qualityBadge = (q: string) => {
     const map: Record<string, { bg: string; color: string }> = {
       GREEN: { bg: '#F0FDF4', color: '#15803D' },
@@ -136,7 +145,7 @@ export default function NumbersPage() {
                 <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 600, color: '#0D0D0D', fontSize: 14 }}>{n.display_phone || n.phone_number_id}</div>
-                    <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>{n.label ? `${n.label} · ` : ''}{n.phone_number_id}</div>
+                    <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>{n.label ? `${n.label} · ` : ''}WABA {n.waba_id}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     <span style={{ fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 5, background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0' }}>
@@ -148,6 +157,11 @@ export default function NumbersPage() {
                     <button onClick={() => isDiag ? setDiagFor(null) : runDiagnose(n.id)}
                       style={{ padding: '6px 12px', fontSize: 12, fontWeight: 500, background: isDiag ? '#0D0D0D' : '#fff', color: isDiag ? '#fff' : '#374151', border: '1px solid #E5E5E5', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' }}>
                       {isDiag ? 'Tutup' : 'Cek koneksi'}
+                    </button>
+                    <button onClick={() => hapusNomor(n.id, n.display_phone || n.phone_number_id)}
+                      title="Hapus nomor"
+                      style={{ padding: '6px 12px', fontSize: 12, fontWeight: 500, background: '#fff', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Hapus
                     </button>
                   </div>
                 </div>

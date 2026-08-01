@@ -39,3 +39,28 @@ export async function POST(req: Request) {
   await supabaseAdmin.from('wa_number_secrets').upsert({ wa_number_id: num.id, access_token }, { onConflict: 'wa_number_id' })
   return NextResponse.json({ ok: true, id: num.id })
 }
+
+// Hapus nomor (dan token-nya). Dipakai untuk membersihkan nomor duplikat/lama
+// yang waba_id-nya salah. Aman per-tenant: hanya menghapus nomor milik tenant
+// pemanggil. Secret ikut terhapus lewat FK cascade; dihapus eksplisit juga
+// untuk jaga-jaga kalau cascade tidak diset.
+export async function DELETE(req: Request) {
+  const actor = await getActor(req)
+  if (!actor?.tenantId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (actor.role && !['owner', 'admin'].includes(actor.role)) {
+    return NextResponse.json({ error: 'Hanya admin/owner yang bisa menghapus nomor.' }, { status: 403 })
+  }
+
+  const id = new URL(req.url).searchParams.get('id')
+  if (!id) return NextResponse.json({ error: 'id wajib' }, { status: 400 })
+
+  // Pastikan nomor ini milik tenant pemanggil sebelum menghapus.
+  const { data: num } = await supabaseAdmin
+    .from('wa_numbers').select('id').eq('id', id).eq('tenant_id', actor.tenantId).maybeSingle()
+  if (!num) return NextResponse.json({ error: 'Nomor tidak ditemukan.' }, { status: 404 })
+
+  await supabaseAdmin.from('wa_number_secrets').delete().eq('wa_number_id', id)
+  const { error } = await supabaseAdmin.from('wa_numbers').delete().eq('id', id).eq('tenant_id', actor.tenantId)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}

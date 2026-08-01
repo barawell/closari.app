@@ -41,13 +41,22 @@ export async function POST(req: Request) {
   const mode: 'text' | 'template' = b?.mode === 'text' ? 'text' : 'template'
 
   // ── Nomor pengirim milik tenant ────────────────────────────────────────────
-  // Pakai wa_number_id yang diminta, atau nomor pertama tenant kalau tidak diisi.
+  // Pakai wa_number_id yang diminta, atau nomor PALING SEHAT tenant kalau tidak
+  // diisi. Prioritas status 'connected' dulu (bukan yang paling lama) supaya
+  // nomor lama/duplikat dengan token ngaco tidak terpilih.
   let waNumberId = String(b?.wa_number_id || '').trim() || null
-  let numQuery = supabaseAdmin
-    .from('wa_numbers').select('id, phone_number_id').eq('tenant_id', actor.tenantId)
-  if (waNumberId) numQuery = numQuery.eq('id', waNumberId)
-  const { data: nums } = await numQuery.order('created_at', { ascending: true }).limit(1)
-  const num = nums?.[0]
+  let num: { id: string; phone_number_id: string } | null = null
+  if (waNumberId) {
+    const { data } = await supabaseAdmin
+      .from('wa_numbers').select('id, phone_number_id').eq('tenant_id', actor.tenantId).eq('id', waNumberId).maybeSingle()
+    num = data as any
+  } else {
+    const { data: nums } = await supabaseAdmin
+      .from('wa_numbers').select('id, phone_number_id, status, created_at')
+      .eq('tenant_id', actor.tenantId).order('created_at', { ascending: false })
+    const list = (nums || []) as any[]
+    num = (list.find((n) => n.status === 'connected') || list[0]) || null
+  }
   if (!num) return NextResponse.json({ ok: false, error: 'Tenant belum punya nomor WhatsApp aktif.' }, { status: 400 })
 
   const { data: sec } = await supabaseAdmin
