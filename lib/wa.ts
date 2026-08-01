@@ -89,6 +89,31 @@ export async function sendLocation(
 }
 
 // ── Core sender ─────────────────────────────────────────────
+// ── Kirim template WhatsApp ──
+// Dipakai broadcast DAN endpoint eksternal (abandoned-cart dari tenant lain).
+// Template WAJIB untuk menjangkau nomor yang belum pernah chat / di luar window
+// 24 jam — itu sebabnya abandoned-cart memakai ini, bukan sendText.
+export async function sendTemplate(
+  phoneNumberId: string,
+  accessToken: string,
+  to: string,
+  templateName: string,
+  language: string = 'id',
+  params: string[] = [],
+  headerImageUrl?: string | null,
+): Promise<{ ok: boolean; waMessageId?: string; error?: string }> {
+  const template: any = { name: templateName, language: { code: language || 'id' } }
+  const comps: any[] = []
+  if (headerImageUrl) {
+    comps.push({ type: 'header', parameters: [{ type: 'image', image: { link: headerImageUrl } }] })
+  }
+  if (params && params.length > 0) {
+    comps.push({ type: 'body', parameters: params.map((p) => ({ type: 'text', text: String(p ?? '') })) })
+  }
+  if (comps.length) template.components = comps
+  return sendRaw(phoneNumberId, accessToken, { messaging_product: 'whatsapp', to, type: 'template', template })
+}
+
 async function sendRaw(
   phoneNumberId: string,
   accessToken: string,
