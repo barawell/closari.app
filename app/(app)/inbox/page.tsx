@@ -258,6 +258,18 @@ export default function InboxPage() {
     setHasMoreConvs(!!j.has_more)
   }, [])
 
+  // Debounce: kalau pesan masuk beruntun, jangan fetch + render ulang daftar
+  // tiap pesan (itu bikin lag + daftar loncat-loncat sehingga salah klik room).
+  // Gabungkan jadi satu refresh per ~800ms.
+  const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scheduleLoadConvs = useCallback(() => {
+    if (refetchTimer.current) return
+    refetchTimer.current = setTimeout(() => {
+      refetchTimer.current = null
+      loadConvs()
+    }, 800)
+  }, [loadConvs])
+
   // Muat percakapan lebih lama (riwayat penuh, bukan cuma yang terbaru)
   async function loadMoreConvs() {
     if (loadingMore) return
@@ -407,7 +419,7 @@ export default function InboxPage() {
           } else {
             setUnread(prev => ({ ...prev, [convId]: (prev[convId] || 0) + 1 }))
           }
-          loadConvs()
+          scheduleLoadConvs()
         })
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'wa_messages', filter: 'tenant_id=eq.' + tenantId },
@@ -417,8 +429,8 @@ export default function InboxPage() {
         })
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
-  }, [loadConvs, tenantId])
+    return () => { supabase.removeChannel(channel); if (refetchTimer.current) { clearTimeout(refetchTimer.current); refetchTimer.current = null } }
+  }, [loadConvs, scheduleLoadConvs, tenantId])
 
   // Jaring pengaman: refresh daftar tiap 15 detik agar pesan baru tetap ke-tandai walau realtime telat/mati.
   useEffect(() => {
